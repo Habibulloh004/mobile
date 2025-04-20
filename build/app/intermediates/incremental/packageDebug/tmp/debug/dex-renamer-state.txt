@@ -1,4 +1,4 @@
-#Mon Mar 31 12:43:56 UZT 2025
+#Sun Apr 20 11:43:57 UZT 2025
 base.0=D\:\\git\\mobile\\template\\build\\app\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
 base.1=D\:\\git\\mobile\\template\\build\\app\\intermediates\\dex\\debug\\mergeLibDexDebug\\0\\classes.dex
 base.2=D\:\\git\\mobile\\template\\build\\app\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex

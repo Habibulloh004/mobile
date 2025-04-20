@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart'; // Подключаем dio для API-запросов
 import 'package:shared_preferences/shared_preferences.dart';
-import 'main_page.dart';
-import 'profile_page.dart';
+import '../core/api_service.dart';
+import '../utils/color_utils.dart';
+import '../constant/index.dart';
 import 'register_page.dart';
+import 'main_page.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -13,171 +14,304 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _apiService = ApiService();
+
   bool _obscurePassword = true;
-  bool _isLoading = false; // Индикатор загрузки
+  bool _isLoading = false;
+  String _errorMessage = '';
+  bool _rememberMe = false;
 
-  Future<void> _login() async {
-    setState(() {
-      _isLoading = true; // Показываем индикатор загрузки
-    });
+  @override
+  void initState() {
+    super.initState();
+    _checkSavedCredentials();
+  }
 
-    final dio = Dio();
-    final url = 'https://joinposter.com/api/clients.getClients?token=373820:33612612cbfe22576fbd715454ae78d2';
-
+  Future<void> _checkSavedCredentials() async {
     try {
-      final response = await dio.get(url);
-
-      if (response.statusCode == 200) {
-        List<dynamic> clients = response.data["response"];
-
-        // Убираем `+` в начале номера телефона
-        String phoneNumber = _phoneController.text.replaceAll("+", "").trim();
-
-        // Ищем клиента с таким номером телефона
-        var client = clients.firstWhere(
-              (c) => c["phone_number"] == phoneNumber,
-          orElse: () => null,
-        );
-
-        if (client != null) {
-          // ✅ Получаем пароль из JSON-объекта `comment`
-          String? comment = client["comment"];
-          String extractedPassword = "";
-
-          // Парсим пароль из формата `{password: "qwertyui"}`
-          RegExp regExp = RegExp(r'password:\s*"?([^"}]+)"?');
-          Match? match = regExp.firstMatch(comment ?? "");
-
-          if (match != null) {
-            extractedPassword = match.group(1) ?? "";
-          }
-
-          print(client);
-
-          if (extractedPassword == _passwordController.text) {
-            // ✅ Авторизация успешна - сохраняем данные
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool("isLoggedIn", true);
-            await prefs.setString("phone", client["phone_number"]);
-            await prefs.setString("name", client["lastname"] ?? "Без имени");
-            await prefs.setString("bonus", client["bonus"] ?? "0");
-
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProfileScreen()));
-          } else {
-            _showError("Неверный пароль");
-          }
-        } else {
-          _showError("Клиент не найден");
-        }
-      } else {
-        _showError("Ошибка сервера");
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('rememberMe') == true) {
+        setState(() {
+          _phoneController.text = prefs.getString('savedPhone') ?? '';
+          _passwordController.text = prefs.getString('savedPassword') ?? '';
+          _rememberMe = true;
+        });
       }
     } catch (e) {
-      _showError("Ошибка подключения");
-    } finally {
-      setState(() {
-        _isLoading = false; // Скрываем индикатор загрузки
-      });
+      debugPrint('Error loading saved credentials: $e');
     }
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
+    // Validate inputs
+    if (_phoneController.text.isEmpty || _passwordController.text.isEmpty) {
+      setState(() {
+        _errorMessage = 'Пожалуйста, заполните все поля';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final clientData = await _apiService.loginUser(
+        _phoneController.text.trim(),
+        _passwordController.text.trim(),
+      );
+
+      if (clientData != null) {
+        // Save credentials if "Remember me" is checked
+        if (_rememberMe) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('rememberMe', true);
+          await prefs.setString('savedPhone', _phoneController.text.trim());
+          await prefs.setString(
+            'savedPassword',
+            _passwordController.text.trim(),
+          );
+        }
+
+        // Navigate to main page and remove login page from stack
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => MainPage()),
+        );
+      } else {
+        setState(() {
+          _errorMessage = 'Неверный номер телефона или пароль';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Ошибка при входе: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: [
-            SizedBox(height: 80),
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(text: "Foo", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 28)),
-                  TextSpan(text: "dery", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 28)),
-                ],
-              ),
-            ),
-            SizedBox(height: 40),
-            Container(
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Войти", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 16),
-                  TextField(
-                    controller: _phoneController,
-                    decoration: InputDecoration(labelText: "Номер телефона"),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  SizedBox(height: 10),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: "Пароль",
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 30),
-                  _isLoading
-                      ? Center(child: CircularProgressIndicator()) // Показываем индикатор загрузки
-                      : ElevatedButton(
-                    onPressed: _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                      minimumSize: Size(double.infinity, 48),
-                    ),
-                    child: Text("Войти"),
-                  ),
-                  SizedBox(height: 10),
-                  Row(
+      backgroundColor: ColorUtils.bodyColor,
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(height: 60),
+                Text.rich(
+                  TextSpan(
                     children: [
-                      Expanded(child: Divider(thickness: 1, color: Colors.grey[400])),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10),
-                        child: Text("ИЛИ"),
+                      TextSpan(
+                        text: "Foo",
+                        style: TextStyle(
+                          color: ColorUtils.accentColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: Constants.fontSizeXLarge,
+                        ),
                       ),
-                      Expanded(child: Divider(thickness: 1, color: Colors.grey[400])),
+                      TextSpan(
+                        text: "dery",
+                        style: TextStyle(
+                          color: ColorUtils.secondaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: Constants.fontSizeXLarge,
+                        ),
+                      ),
                     ],
                   ),
-                  SizedBox(height: 10),
-                  Center(
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => RegisterPage()),
-                        );
-                      },
-                      child: Text(
-                        "Создать новый аккаунт  ➚",
-                        style: TextStyle(color: Colors.black, fontSize: 16),
-                      ),
-                    ),
+                ),
+                SizedBox(height: 40),
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: ColorUtils.primaryColor,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-              ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Войти",
+                        style: TextStyle(
+                          fontSize: Constants.fontSizeLarge,
+                          fontWeight: FontWeight.bold,
+                          color: ColorUtils.secondaryColor,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      TextField(
+                        controller: _phoneController,
+                        decoration: InputDecoration(
+                          labelText: "Номер телефона",
+                          hintText: "+998 XX XXX XX XX",
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                          labelStyle: TextStyle(color: Colors.grey[600]),
+                          prefixIcon: Icon(Icons.phone),
+                        ),
+                        keyboardType: TextInputType.phone,
+                      ),
+                      SizedBox(height: 12),
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: "Пароль",
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                          labelStyle: TextStyle(color: Colors.grey[600]),
+                          prefixIcon: Icon(Icons.lock),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: Colors.grey[600],
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: 8),
+
+                      // Remember me checkbox
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _rememberMe,
+                            onChanged: (bool? value) {
+                              setState(() {
+                                _rememberMe = value ?? false;
+                              });
+                            },
+                            activeColor: ColorUtils.accentColor,
+                          ),
+                          Text(
+                            "Запомнить меня",
+                            style: TextStyle(
+                              fontSize: Constants.fontSizeSmall,
+                              color: ColorUtils.secondaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      if (_errorMessage.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12.0),
+                          child: Text(
+                            _errorMessage,
+                            style: TextStyle(
+                              color: ColorUtils.errorColor,
+                              fontSize: Constants.fontSizeSmall,
+                            ),
+                          ),
+                        ),
+                      SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child:
+                            _isLoading
+                                ? Center(
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      ColorUtils.accentColor,
+                                    ),
+                                  ),
+                                )
+                                : ElevatedButton(
+                                  onPressed: _login,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: ColorUtils.buttonColor,
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Text("Войти"),
+                                ),
+                      ),
+                      SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              thickness: 1,
+                              color: Colors.grey[300],
+                            ),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                              "ИЛИ",
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: Constants.fontSizeSmall,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              thickness: 1,
+                              color: Colors.grey[300],
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 16),
+                      Center(
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => RegisterPage(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            "Создать новый аккаунт  ➚",
+                            style: TextStyle(
+                              color: ColorUtils.secondaryColor,
+                              fontSize: Constants.fontSizeRegular,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

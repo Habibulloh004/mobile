@@ -1,13 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:poster_app/providers/cart_provider.dart';
 import 'package:poster_app/providers/category_provider.dart';
 import 'package:poster_app/providers/product_provider.dart';
 import 'package:poster_app/views/main_page.dart';
 import 'package:poster_app/core/api_service.dart';
+import 'package:poster_app/utils/color_utils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Set preferred orientations
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  // Set system UI overlay style
+  SystemChrome.setSystemUIOverlayStyle(
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+
   final CartProvider cartProvider = CartProvider();
   final ApiService apiService = ApiService();
 
@@ -23,8 +42,9 @@ void main() async {
   final productProvider = ProductProvider(apiService);
 
   // Start loading data in background
-  categoryProvider.loadCategories().catchError((e) =>
-      print("Initial category data load failed: $e"));
+  categoryProvider.loadCategories().catchError(
+    (e) => print("Initial category data load failed: $e"),
+  );
 
   runApp(
     MultiProvider(
@@ -44,7 +64,49 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: "FooDery",
+      title: "Foodery",
+      theme: ThemeData(
+        primaryColor: ColorUtils.accentColor,
+        scaffoldBackgroundColor: ColorUtils.bodyColor,
+        fontFamily: 'Roboto',
+        appBarTheme: AppBarTheme(
+          backgroundColor: ColorUtils.bodyColor,
+          elevation: 0,
+          titleTextStyle: TextStyle(
+            color: ColorUtils.secondaryColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+          iconTheme: IconThemeData(color: ColorUtils.secondaryColor),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: ColorUtils.buttonColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: ColorUtils.accentColor,
+            side: BorderSide(color: ColorUtils.accentColor),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(foregroundColor: ColorUtils.accentColor),
+        ),
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          backgroundColor: Colors.white,
+          selectedItemColor: ColorUtils.accentColor,
+          unselectedItemColor: Colors.grey,
+          type: BottomNavigationBarType.fixed,
+        ),
+      ),
       home: MainPage(),
     );
   }

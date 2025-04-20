@@ -1,5 +1,25 @@
-import 'package:flutter/foundation.dart';  // ✅ Импортируем для использования debugPrint
+import 'package:flutter/foundation.dart';
+import '../helpers/index.dart';
 
+class ProductModification {
+  final String id;
+  final String name;
+  final int price;
+
+  ProductModification({
+    required this.id,
+    required this.name,
+    required this.price,
+  });
+
+  factory ProductModification.fromJson(Map<String, dynamic> json) {
+    return ProductModification(
+      id: json['modificator_id']?.toString() ?? '',
+      name: json['modificator_name']?.toString() ?? '',
+      price: int.tryParse(json['modificator_selfprice']?.toString() ?? '0') ?? 0,
+    );
+  }
+}
 
 class ProductModel {
   final int id;
@@ -8,6 +28,8 @@ class ProductModel {
   final String imageUrl;
   final String description;
   int quantity;
+  final List<ProductModification>? modifications;
+  final bool isAvailable;
 
   ProductModel({
     required this.id,
@@ -16,38 +38,55 @@ class ProductModel {
     required this.imageUrl,
     required this.description,
     this.quantity = 1,
+    this.modifications,
+    this.isAvailable = true,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
-    // ✅ Логируем JSON продукта
-    debugPrint("📦 Данные продукта перед парсингом: $json");
+    // Log JSON product data for debugging
+    debugPrint("📦 Parsing product data: ${json['product_id']} - ${json['product_name']}");
 
-    // ✅ Получаем фото товара (если `null`, используем заглушку)
-    String imagePath = json['photo'] ?? json['photo_origin'] ?? "";
-    if (imagePath.isNotEmpty && !imagePath.startsWith("http")) {
-      imagePath = "https://joinposter.com" + imagePath;
+    // Clean product name (remove anything after $ if present)
+    final cleanedName = cleanProductName(json['product_name'] ?? "Без названия");
+
+    // Get image URL using the helper function
+    final imageUrl = getImageUrl(json['photo'], json['photo_origin']);
+
+    // Extract price using the helper function
+    final price = extractPrice(json['price']);
+
+    // Check if the product is out of stock
+    final bool isAvailable = json['out'] == 0;
+
+    // Parse modifications if available
+    List<ProductModification>? modifications;
+    if (json['modifications'] != null) {
+      modifications = (json['modifications'] as List)
+          .map((mod) => ProductModification.fromJson(mod))
+          .toList();
+      debugPrint("🧩 Found ${modifications.length} modifications for product ${json['product_id']}");
     }
-
-    // ✅ Исправляем парсинг цены (если это Map)
-    int parsedPrice = 0;
-    if (json['price'] is Map && json['price'].isNotEmpty) {
-      var firstPrice = json['price'].values.first; // Берем первое значение
-      parsedPrice = int.tryParse(firstPrice.toString()) ?? 0;
-    } else if (json['price'] is String) {
-      parsedPrice = int.tryParse(json['price']) ?? 0;
-    } else if (json['price'] is int) {
-      parsedPrice = json['price'];
-    }
-
-    // ✅ Выводим конечные значения перед возвратом
-    debugPrint("✅ Итоговый объект ProductModel: id=${json['product_id']}, name=${json['product_name']}, price=$parsedPrice, imageUrl=$imagePath");
 
     return ProductModel(
-      id: int.tryParse(json['product_id'].toString()) ?? 0,
-      name: json['product_name']?.trim() ?? "Без названия",
-      price: parsedPrice,
-      imageUrl: imagePath.isNotEmpty ? imagePath : "assets/images/no_image.png", // ✅ Заглушка
-      description: json['description']?.trim() ?? "Описание отсутствует",
+      id: int.tryParse(json['product_id']?.toString() ?? '0') ?? 0,
+      name: cleanedName,
+      price: price,
+      imageUrl: imageUrl,
+      description: json['description']?.toString().trim() ?? "Описание отсутствует",
+      modifications: modifications,
+      isAvailable: isAvailable,
     );
+  }
+
+  // Convert to a map for cart storage
+  Map<String, dynamic> toCartItem() {
+    return {
+      'product_id': id,
+      'name': name,
+      'price': price,
+      'imageUrl': imageUrl,
+      'quantity': quantity,
+      'isAvailable': isAvailable,
+    };
   }
 }

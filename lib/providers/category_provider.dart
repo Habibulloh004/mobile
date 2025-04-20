@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:poster_app/models/category_model.dart';
+import '../models/category_model.dart';
 import '../core/api_service.dart';
 
 class CategoryProvider with ChangeNotifier {
@@ -9,8 +9,11 @@ class CategoryProvider with ChangeNotifier {
   bool _hasError = false;
   String _errorMessage = '';
 
-  CategoryProvider(this._apiService);
+  CategoryProvider(this._apiService) {
+    loadCategories();
+  }
 
+  // Getters
   List<CategoryModel> get categories => _categories;
   bool get isLoading => _isLoading;
   bool get hasError => _hasError;
@@ -18,7 +21,7 @@ class CategoryProvider with ChangeNotifier {
 
   Future<void> loadCategories() async {
     if (_categories.isNotEmpty && !_isLoading) {
-      // We already have data and are not loading
+      // If we already have data and are not currently loading, just return
       return;
     }
 
@@ -27,21 +30,44 @@ class CategoryProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      print("Fetching categories from API...");
-      final fetchedCategory = await _apiService.fetchCategories();
+      debugPrint("🔍 Fetching categories from API...");
+      final fetchedCategories = await _apiService.fetchCategories();
 
-      _categories = fetchedCategory;
+      _categories = fetchedCategories;
       _isLoading = false;
       _hasError = false;
-      print("Successfully loaded ${_categories.length} categories");
+      debugPrint("✅ Successfully loaded ${_categories.length} categories");
       notifyListeners();
     } catch (e) {
-      print("Error loading categories: $e");
+      debugPrint("❌ Error loading categories: $e");
       _isLoading = false;
       _hasError = true;
       _errorMessage = e.toString();
       notifyListeners();
-      // We don't rethrow - we handle the error state in the provider
+    }
+  }
+
+  // Refresh categories (force reload)
+  Future<void> refreshCategories() async {
+    _isLoading = true;
+    _hasError = false;
+    notifyListeners();
+
+    try {
+      debugPrint("🔄 Refreshing categories...");
+      final fetchedCategories = await _apiService.fetchCategories();
+
+      _categories = fetchedCategories;
+      _isLoading = false;
+      _hasError = false;
+      debugPrint("✅ Successfully refreshed ${_categories.length} categories");
+      notifyListeners();
+    } catch (e) {
+      debugPrint("❌ Error refreshing categories: $e");
+      _isLoading = false;
+      _hasError = true;
+      _errorMessage = e.toString();
+      notifyListeners();
     }
   }
 }

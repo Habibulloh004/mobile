@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../core/api_service.dart';
+import '../utils/color_utils.dart';
+import '../constant/index.dart';
 import 'login_page.dart';
 import 'main_page.dart';
 
@@ -13,161 +14,355 @@ class _RegisterPageState extends State<RegisterPage> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _apiService = ApiService();
+
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+  bool _acceptTerms = false;
+  String _errorMessage = '';
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _register() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    String name = _nameController.text.trim();
-    String phone = _phoneController.text.trim();
-    String password = _passwordController.text.trim();
-
-    if (name.isEmpty || phone.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Заполните все поля")),
-      );
+    // Validate inputs
+    if (_nameController.text.isEmpty ||
+        _phoneController.text.isEmpty ||
+        _passwordController.text.isEmpty ||
+        _confirmPasswordController.text.isEmpty) {
       setState(() {
-        _isLoading = false;
+        _errorMessage = 'Пожалуйста, заполните все поля';
       });
       return;
     }
 
-    try {
-      final response = await Dio().post(
-        "https://joinposter.com/api/clients.createClient",
-        queryParameters: {
-          "token": "373820:33612612cbfe22576fbd715454ae78d2",
-        },
-        data: {
-          "client_name": name,
-          "phone": phone,
-          "comment": "{password: \"$password\"}",
-          "client_groups_id_client": 1,
-        },
-      );
-      print(response.data);
+    if (_passwordController.text != _confirmPasswordController.text) {
+      setState(() {
+        _errorMessage = 'Пароли не совпадают';
+      });
+      return;
+    }
 
-      if (response.statusCode == 200 && response.data["response"] != null) {
-        // ✅ Сохранение данных пользователя
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString("phone", phone);
-        await prefs.setBool("isLoggedIn", true);
+    if (!_acceptTerms) {
+      setState(() {
+        _errorMessage = 'Необходимо принять условия соглашения';
+      });
+      return;
+    }
 
-        // 🔹 Переход на главную страницу
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainPage()));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Ошибка регистрации. Попробуйте снова.")),
-        );
-      }
-    } catch (e) {
-      print("Ошибка регистрации: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Ошибка сети. Проверьте подключение.")),
-      );
+    // Validate phone number format
+    String cleanPhone = _phoneController.text.replaceAll(' ', '').trim();
+    RegExp phoneRegExp = RegExp(r'^\+?[0-9]{10,13}$');
+    if (!phoneRegExp.hasMatch(cleanPhone)) {
+      setState(() {
+        _errorMessage = 'Введите корректный номер телефона';
+      });
+      return;
     }
 
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
+      _errorMessage = '';
     });
+
+    try {
+      final clientId = await _apiService.registerUser(
+        _nameController.text.trim(),
+        _phoneController.text.trim(),
+        _passwordController.text.trim(),
+      );
+
+      if (clientId != null) {
+        // Navigate to main page and remove all pages from stack
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => MainPage()),
+        );
+      } else {
+        setState(() {
+          _errorMessage =
+              'Ошибка при регистрации. Возможно, пользователь с таким номером уже существует.';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Ошибка при регистрации: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: [
-            SizedBox(height: 80),
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(text: "Foo", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 28)),
-                  TextSpan(text: "dery", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 28)),
-                ],
-              ),
-            ),
-            SizedBox(height: 40),
-            Container(
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Регистрация", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 16),
-                  TextField(
-                    controller: _nameController,
-                    decoration: InputDecoration(labelText: "Имя"),
-                  ),
-                  SizedBox(height: 10),
-                  TextField(
-                    controller: _phoneController,
-                    decoration: InputDecoration(labelText: "Номер телефона"),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  SizedBox(height: 10),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: "Пароль",
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 10),
-                  _isLoading
-                      ? Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                    onPressed: _register,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                      minimumSize: Size(double.infinity, 48),
-                    ),
-                    child: Text("Зарегистрироваться"),
-                  ),
-                  SizedBox(height: 10),
-                  Row(
+      backgroundColor: ColorUtils.bodyColor,
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(height: 40),
+                Text.rich(
+                  TextSpan(
                     children: [
-                      Expanded(child: Divider(thickness: 1, color: Colors.grey[400])),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10),
-                        child: Text("ИЛИ"),
+                      TextSpan(
+                        text: "Foo",
+                        style: TextStyle(
+                          color: ColorUtils.accentColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: Constants.fontSizeXLarge,
+                        ),
                       ),
-                      Expanded(child: Divider(thickness: 1, color: Colors.grey[400])),
+                      TextSpan(
+                        text: "dery",
+                        style: TextStyle(
+                          color: ColorUtils.secondaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: Constants.fontSizeXLarge,
+                        ),
+                      ),
                     ],
                   ),
-                  SizedBox(height: 10),
-                  Center(
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginPage()));
-                      },
-                      child: Text(
-                        "Войти в аккаунт  ➚",
-                        style: TextStyle(color: Colors.black, fontSize: 16),
-                      ),
-                    ),
+                ),
+                SizedBox(height: 30),
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: ColorUtils.primaryColor,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-              ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Регистрация",
+                        style: TextStyle(
+                          fontSize: Constants.fontSizeLarge,
+                          fontWeight: FontWeight.bold,
+                          color: ColorUtils.secondaryColor,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      TextField(
+                        controller: _nameController,
+                        decoration: InputDecoration(
+                          labelText: "Имя",
+                          hintText: "Ваше имя",
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                          labelStyle: TextStyle(color: Colors.grey[600]),
+                          prefixIcon: Icon(Icons.person),
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      TextField(
+                        controller: _phoneController,
+                        decoration: InputDecoration(
+                          labelText: "Номер телефона",
+                          hintText: "+998 XX XXX XX XX",
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                          labelStyle: TextStyle(color: Colors.grey[600]),
+                          prefixIcon: Icon(Icons.phone),
+                        ),
+                        keyboardType: TextInputType.phone,
+                      ),
+                      SizedBox(height: 12),
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: "Пароль",
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                          labelStyle: TextStyle(color: Colors.grey[600]),
+                          prefixIcon: Icon(Icons.lock),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: Colors.grey[600],
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      TextField(
+                        controller: _confirmPasswordController,
+                        obscureText: _obscureConfirmPassword,
+                        decoration: InputDecoration(
+                          labelText: "Подтвердите пароль",
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                          labelStyle: TextStyle(color: Colors.grey[600]),
+                          prefixIcon: Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirmPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: Colors.grey[600],
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscureConfirmPassword =
+                                    !_obscureConfirmPassword;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: _acceptTerms,
+                              onChanged: (value) {
+                                setState(() {
+                                  _acceptTerms = value ?? false;
+                                });
+                              },
+                              activeColor: ColorUtils.accentColor,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "Я согласен с условиями соглашения",
+                              style: TextStyle(
+                                fontSize: Constants.fontSizeSmall,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_errorMessage.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12.0),
+                          child: Text(
+                            _errorMessage,
+                            style: TextStyle(
+                              color: ColorUtils.errorColor,
+                              fontSize: Constants.fontSizeSmall,
+                            ),
+                          ),
+                        ),
+                      SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child:
+                            _isLoading
+                                ? Center(
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      ColorUtils.accentColor,
+                                    ),
+                                  ),
+                                )
+                                : ElevatedButton(
+                                  onPressed: _register,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: ColorUtils.buttonColor,
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Text("Зарегистрироваться"),
+                                ),
+                      ),
+                      SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              thickness: 1,
+                              color: Colors.grey[300],
+                            ),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                              "ИЛИ",
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: Constants.fontSizeSmall,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              thickness: 1,
+                              color: Colors.grey[300],
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 16),
+                      Center(
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => LoginPage(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            "Войти в аккаунт  ➚",
+                            style: TextStyle(
+                              color: ColorUtils.secondaryColor,
+                              fontSize: Constants.fontSizeRegular,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -7,6 +7,7 @@ import '../constant/index.dart';
 import '../widgets/search_bar_widget.dart';
 import 'product_page.dart';
 import 'cart_page.dart';
+import 'search_page.dart';
 
 class CategoryPage extends StatefulWidget {
   @override

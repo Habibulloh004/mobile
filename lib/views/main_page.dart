@@ -13,6 +13,7 @@ import 'product_page.dart';
 import 'category_page.dart';
 import 'profile_page.dart';
 import 'login_page.dart';
+import 'search_page.dart';
 
 class MainPage extends StatefulWidget {
   @override
@@ -367,18 +368,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Search bar
                     Padding(
                       padding: EdgeInsets.symmetric(vertical: 16),
-                      child: SearchBarWidget(
-                        controller: _searchController,
-                        onChanged: (query) => _onSearchChanged(),
-                        hintText: "Поиск...",
-                        onClear: () {
-                          setState(() {
-                            _searchQuery = '';
-                          });
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SearchPage(),
+                            ),
+                          );
                         },
+                        child: AbsorbPointer(
+                          child: SearchBarWidget(
+                            controller: _searchController,
+                            onChanged: (query) => _onSearchChanged(),
+                            hintText: "Поиск...",
+                            onClear: () {
+                              setState(() {
+                                _searchQuery = '';
+                              });
+                            },
+                          ),
+                        ),
                       ),
                     ),
-
                     // Search results or categories title
                     Padding(
                       padding: EdgeInsets.only(top: 8, bottom: 16),

@@ -8,6 +8,7 @@ import '../helpers/index.dart';
 import '../widgets/search_bar_widget.dart';
 import 'product_detail_page.dart';
 import 'cart_page.dart';
+import 'search_page.dart';
 
 class ProductPage extends StatefulWidget {
   final int categoryId;
@@ -360,37 +361,37 @@ class _ProductPageState extends State<ProductPage>
                                         ),
                                       ),
                                     ),
-                                    if (!product.isAvailable)
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.5),
-                                          borderRadius: BorderRadius.vertical(
-                                            top: Radius.circular(12),
-                                          ),
-                                        ),
-                                        child: Center(
-                                          child: Container(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red,
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              "Нет в наличии",
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize:
-                                                    Constants.fontSizeSmall,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                    // if (!product.isAvailable)
+                                    //   Container(
+                                    //     decoration: BoxDecoration(
+                                    //       color: Colors.black.withOpacity(0.5),
+                                    //       borderRadius: BorderRadius.vertical(
+                                    //         top: Radius.circular(12),
+                                    //       ),
+                                    //     ),
+                                    //     child: Center(
+                                    //       child: Container(
+                                    //         padding: EdgeInsets.symmetric(
+                                    //           horizontal: 12,
+                                    //           vertical: 6,
+                                    //         ),
+                                    //         decoration: BoxDecoration(
+                                    //           color: Colors.red,
+                                    //           borderRadius:
+                                    //               BorderRadius.circular(6),
+                                    //         ),
+                                    //         child: Text(
+                                    //           "Нет в наличии",
+                                    //           style: TextStyle(
+                                    //             color: Colors.white,
+                                    //             fontWeight: FontWeight.bold,
+                                    //             fontSize:
+                                    //                 Constants.fontSizeSmall,
+                                    //           ),
+                                    //         ),
+                                    //       ),
+                                    //     ),
+                                    //   ),
                                   ],
                                 ),
                               ),
@@ -419,155 +420,150 @@ class _ProductPageState extends State<ProductPage>
                                       ),
                                     ),
                                     SizedBox(height: 8),
-                                    if (product.isAvailable)
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child:
-                                            quantity > 0
-                                                ? Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    InkWell(
-                                                      onTap: () {
-                                                        cartProvider
-                                                            .updateQuantity(
-                                                              product.id,
-                                                              -1,
-                                                            );
-                                                      },
-                                                      child: Container(
-                                                        padding: EdgeInsets.all(
-                                                          6,
-                                                        ),
-                                                        decoration: BoxDecoration(
-                                                          color:
-                                                              ColorUtils
-                                                                  .primaryColor,
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                6,
-                                                              ),
-                                                        ),
-                                                        child: Icon(
-                                                          Icons.remove,
-                                                          size: 16,
-                                                          color:
-                                                              ColorUtils
-                                                                  .secondaryColor,
-                                                        ),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child:
+                                          quantity > 0
+                                              ? Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  InkWell(
+                                                    onTap: () {
+                                                      cartProvider
+                                                          .updateQuantity(
+                                                            product.id,
+                                                            -1,
+                                                          );
+                                                    },
+                                                    child: Container(
+                                                      padding: EdgeInsets.all(
+                                                        6,
                                                       ),
-                                                    ),
-                                                    Container(
-                                                      padding:
-                                                          EdgeInsets.symmetric(
-                                                            horizontal: 12,
-                                                            vertical: 4,
-                                                          ),
                                                       decoration: BoxDecoration(
                                                         color:
                                                             ColorUtils
                                                                 .primaryColor,
                                                         borderRadius:
                                                             BorderRadius.circular(
-                                                              12,
+                                                              6,
                                                             ),
                                                       ),
-                                                      child: Text(
-                                                        quantity.toString(),
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize:
-                                                              Constants
-                                                                  .fontSizeMedium,
-                                                        ),
+                                                      child: Icon(
+                                                        Icons.remove,
+                                                        size: 16,
+                                                        color:
+                                                            ColorUtils
+                                                                .secondaryColor,
                                                       ),
                                                     ),
-                                                    InkWell(
-                                                      onTap: () {
-                                                        cartProvider
-                                                            .updateQuantity(
-                                                              product.id,
-                                                              1,
-                                                            );
-                                                      },
-                                                      child: Container(
-                                                        padding: EdgeInsets.all(
-                                                          6,
-                                                        ),
-                                                        decoration: BoxDecoration(
-                                                          color:
-                                                              ColorUtils
-                                                                  .primaryColor,
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                6,
-                                                              ),
-                                                        ),
-                                                        child: Icon(
-                                                          Icons.add,
-                                                          size: 16,
-                                                          color:
-                                                              ColorUtils
-                                                                  .secondaryColor,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                )
-                                                : OutlinedButton(
-                                                  onPressed: () {
-                                                    cartProvider.addItem(
-                                                      product.toCartItem(),
-                                                    );
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(
-                                                          "Товар добавлен в корзину",
-                                                        ),
-                                                        duration: Duration(
-                                                          seconds: 1,
-                                                        ),
-                                                        behavior:
-                                                            SnackBarBehavior
-                                                                .floating,
-                                                      ),
-                                                    );
-                                                  },
-                                                  style: OutlinedButton.styleFrom(
+                                                  ),
+                                                  Container(
                                                     padding:
                                                         EdgeInsets.symmetric(
-                                                          vertical: 6,
+                                                          horizontal: 12,
+                                                          vertical: 4,
                                                         ),
-                                                    side: BorderSide(
+                                                    decoration: BoxDecoration(
                                                       color:
                                                           ColorUtils
-                                                              .accentColor,
-                                                    ),
-                                                    shape: RoundedRectangleBorder(
+                                                              .primaryColor,
                                                       borderRadius:
                                                           BorderRadius.circular(
-                                                            8,
+                                                            12,
                                                           ),
                                                     ),
-                                                  ),
-                                                  child: Text(
-                                                    "В корзину",
-                                                    style: TextStyle(
-                                                      color:
-                                                          ColorUtils
-                                                              .accentColor,
-                                                      fontSize:
-                                                          Constants
-                                                              .fontSizeSmall,
+                                                    child: Text(
+                                                      quantity.toString(),
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize:
+                                                            Constants
+                                                                .fontSizeMedium,
+                                                      ),
                                                     ),
                                                   ),
+                                                  InkWell(
+                                                    onTap: () {
+                                                      cartProvider
+                                                          .updateQuantity(
+                                                            product.id,
+                                                            1,
+                                                          );
+                                                    },
+                                                    child: Container(
+                                                      padding: EdgeInsets.all(
+                                                        6,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color:
+                                                            ColorUtils
+                                                                .primaryColor,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              6,
+                                                            ),
+                                                      ),
+                                                      child: Icon(
+                                                        Icons.add,
+                                                        size: 16,
+                                                        color:
+                                                            ColorUtils
+                                                                .secondaryColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                              : OutlinedButton(
+                                                onPressed: () {
+                                                  cartProvider.addItem(
+                                                    product.toCartItem(),
+                                                  );
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                        "Товар добавлен в корзину",
+                                                      ),
+                                                      duration: Duration(
+                                                        seconds: 1,
+                                                      ),
+                                                      behavior:
+                                                          SnackBarBehavior
+                                                              .floating,
+                                                    ),
+                                                  );
+                                                },
+                                                style: OutlinedButton.styleFrom(
+                                                  padding: EdgeInsets.symmetric(
+                                                    vertical: 6,
+                                                  ),
+                                                  side: BorderSide(
+                                                    color:
+                                                        ColorUtils.accentColor,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                  ),
                                                 ),
-                                      ),
+                                                child: Text(
+                                                  "В корзину",
+                                                  style: TextStyle(
+                                                    color:
+                                                        ColorUtils.accentColor,
+                                                    fontSize:
+                                                        Constants.fontSizeSmall,
+                                                  ),
+                                                ),
+                                              ),
+                                    ),
                                   ],
                                 ),
                               ),

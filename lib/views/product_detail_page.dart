@@ -6,6 +6,8 @@ import '../utils/color_utils.dart';
 import '../constant/index.dart';
 import '../helpers/index.dart';
 import '../models/product_model.dart';
+import 'search_page.dart';
+import 'cart_page.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final int productId;
@@ -20,6 +22,44 @@ class ProductDetailPage extends StatefulWidget {
 class _ProductDetailPageState extends State<ProductDetailPage> {
   int _quantity = 1;
   ProductModification? _selectedModification;
+  bool _productLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Attempt to pre-load product if needed
+    _checkAndLoadProduct();
+  }
+
+  Future<void> _checkAndLoadProduct() async {
+    final productProvider = Provider.of<ProductProvider>(
+      context,
+      listen: false,
+    );
+    ProductModel? product = productProvider.getProductById(widget.productId);
+
+    if (product == null) {
+      debugPrint(
+        '⚠️ Product not found in initState, attempting to fetch it specifically',
+      );
+      setState(() {
+        _productLoading = true;
+      });
+
+      // Try to fetch this specific product
+      final fetchedProduct = await productProvider.fetchProductById(
+        widget.productId,
+      );
+
+      setState(() {
+        _productLoading = false;
+      });
+
+      if (fetchedProduct == null) {
+        debugPrint('❌ Failed to fetch product with ID: ${widget.productId}');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +71,60 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
     // Find the product in the products list
     ProductModel? product = productProvider.getProductById(widget.productId);
+
+    // Debug logs to help diagnose the issue
+    debugPrint(
+      '🔍 ProductDetailPage - Looking for product ID: ${widget.productId}',
+    );
+    debugPrint(
+      '🔍 Current products in provider: ${productProvider.products.length}',
+    );
+    if (product != null) {
+      debugPrint('✅ Product found: ${product.name}');
+    } else {
+      debugPrint('❌ Product not found with ID: ${widget.productId}');
+
+      // Try loading the product if not found - may need to implement a method to load a specific product
+      // This is a workaround if the product isn't in the current ProductProvider cache
+      debugPrint('🔄 Attempting to refresh products');
+      if (!_productLoading) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _productLoading = true;
+          productProvider.refreshProducts().then((_) {
+            setState(() {
+              _productLoading = false;
+            });
+          });
+        });
+      }
+    }
+
+    if (_productLoading) {
+      return Scaffold(
+        backgroundColor: ColorUtils.bodyColor,
+        appBar: AppBar(
+          backgroundColor: ColorUtils.bodyColor,
+          elevation: 0,
+          title: Text(
+            "Загрузка...",
+            style: TextStyle(
+              color: ColorUtils.secondaryColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          centerTitle: true,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: ColorUtils.secondaryColor),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(ColorUtils.accentColor),
+          ),
+        ),
+      );
+    }
 
     if (product == null) {
       return Scaffold(
@@ -44,12 +138,37 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           ),
         ),
         body: Center(
-          child: Text(
-            "Товар не найден",
-            style: TextStyle(
-              color: ColorUtils.secondaryColor,
-              fontSize: Constants.fontSizeMedium,
-            ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+              SizedBox(height: 16),
+              Text(
+                "Товар не найден",
+                style: TextStyle(
+                  color: ColorUtils.secondaryColor,
+                  fontSize: Constants.fontSizeMedium,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                "ID товара: ${widget.productId}",
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: Constants.fontSizeRegular,
+                ),
+              ),
+              SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ColorUtils.accentColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text("Вернуться назад"),
+              ),
+            ],
           ),
         ),
       );
@@ -88,6 +207,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.search, color: ColorUtils.secondaryColor),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SearchPage()),
+              );
+            },
+          ),
           Stack(
             alignment: Alignment.center,
             children: [
@@ -96,7 +224,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   Icons.shopping_cart,
                   color: ColorUtils.secondaryColor,
                 ),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => CartPage()),
+                  );
+                },
               ),
               if (cartProvider.cartItems.isNotEmpty)
                 Positioned(
@@ -134,6 +267,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 product.imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
+                  debugPrint('❌ Error loading image: $error');
                   return Image.asset(
                     "assets/images/no_image.png",
                     fit: BoxFit.cover,
@@ -254,134 +388,115 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ),
 
                   // Quantity selector
-                  if (product.isAvailable)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Количество:",
-                          style: TextStyle(
-                            fontSize: Constants.fontSizeMedium,
-                            fontWeight: FontWeight.bold,
-                            color: ColorUtils.secondaryColor,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                color: ColorUtils.primaryColor,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  IconButton(
-                                    icon: Icon(Icons.remove),
-                                    onPressed:
-                                        _quantity > 1
-                                            ? () {
-                                              setState(() {
-                                                _quantity--;
-                                              });
-                                            }
-                                            : null,
-                                    color: ColorUtils.secondaryColor,
-                                  ),
-                                  SizedBox(
-                                    width: 40,
-                                    child: Text(
-                                      _quantity.toString(),
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: Constants.fontSizeLarge,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(Icons.add),
-                                    onPressed: () {
-                                      setState(() {
-                                        _quantity++;
-                                      });
-                                    },
-                                    color: ColorUtils.secondaryColor,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  // Prepare cart item data
-                                  Map<String, dynamic> cartItem =
-                                      product.toCartItem();
-                                  cartItem['quantity'] = _quantity;
-
-                                  // Add modification info if selected
-                                  if (_selectedModification != null) {
-                                    cartItem['modification'] = {
-                                      'id': _selectedModification!.id,
-                                      'name': _selectedModification!.name,
-                                      'price': _selectedModification!.price,
-                                    };
-                                  }
-
-                                  // Add to cart
-                                  cartProvider.addItem(cartItem);
-
-                                  // Show confirmation
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("Товар добавлен в корзину"),
-                                      backgroundColor: Colors.green,
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-
-                                  // Go back to previous page
-                                  Navigator.of(context).pop();
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: ColorUtils.accentColor,
-                                  padding: EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(
-                                  "Добавить в корзину",
-                                  style: TextStyle(
-                                    fontSize: Constants.fontSizeRegular,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                  else
-                    Container(
-                      padding: EdgeInsets.all(16),
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        "Нет в наличии",
-                        textAlign: TextAlign.center,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Количество:",
                         style: TextStyle(
                           fontSize: Constants.fontSizeMedium,
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey[700],
+                          color: ColorUtils.secondaryColor,
                         ),
                       ),
-                    ),
+                      SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: ColorUtils.primaryColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.remove),
+                                  onPressed:
+                                      _quantity > 1
+                                          ? () {
+                                            setState(() {
+                                              _quantity--;
+                                            });
+                                          }
+                                          : null,
+                                  color: ColorUtils.secondaryColor,
+                                ),
+                                SizedBox(
+                                  width: 40,
+                                  child: Text(
+                                    _quantity.toString(),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: Constants.fontSizeLarge,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.add),
+                                  onPressed: () {
+                                    setState(() {
+                                      _quantity++;
+                                    });
+                                  },
+                                  color: ColorUtils.secondaryColor,
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                // Prepare cart item data
+                                Map<String, dynamic> cartItem =
+                                    product.toCartItem();
+                                cartItem['quantity'] = _quantity;
+
+                                // Add modification info if selected
+                                if (_selectedModification != null) {
+                                  cartItem['modification'] = {
+                                    'id': _selectedModification!.id,
+                                    'name': _selectedModification!.name,
+                                    'price': _selectedModification!.price,
+                                  };
+                                }
+
+                                // Add to cart
+                                cartProvider.addItem(cartItem);
+
+                                // Show confirmation
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("Товар добавлен в корзину"),
+                                    backgroundColor: Colors.green,
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+
+                                // Go back to previous page
+                                Navigator.of(context).pop();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: ColorUtils.accentColor,
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: Text(
+                                "Добавить в корзину",
+                                style: TextStyle(
+                                  fontSize: Constants.fontSizeRegular,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

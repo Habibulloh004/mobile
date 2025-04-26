@@ -17,7 +17,9 @@ class CartProvider with ChangeNotifier {
 
   // Getters
   List<Map<String, dynamic>> get cartItems => _cartItems;
+
   bool get isDelivery => _isDelivery;
+
   double get deliveryFee => _isDelivery ? _deliveryFee : 0;
 
   // Set delivery method
@@ -64,47 +66,129 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  // Add item to cart
+  // Update the CartProvider methods to handle both types of modifications
+
   void addItem(Map<String, dynamic> product) {
     debugPrint("📌 Adding item to cart: ${product['name']}");
 
-    // Check if product already exists in cart
-    final existingIndex = _cartItems.indexWhere(
-            (item) => item['product_id'] == product['product_id']
-    );
+    // Check if product has a modification
+    bool hasModification =
+        product.containsKey('modification') && product['modification'] != null;
+
+    // Create a unique identifier that includes both product ID and modification ID (if any)
+    String uniqueId = product['product_id'].toString();
+    if (hasModification) {
+      uniqueId += "_${product['modification']['id']}";
+    }
+
+    // Check if this exact product (with the same modification if any) already exists in cart
+    final existingIndex = _cartItems.indexWhere((item) {
+      // If the base product IDs don't match, it's definitely different
+      if (item['product_id'] != product['product_id']) return false;
+
+      // If one has a modification and the other doesn't, they're different
+      bool itemHasModification =
+          item.containsKey('modification') && item['modification'] != null;
+      if (hasModification != itemHasModification) return false;
+
+      // If both have modifications, compare the modification IDs
+      if (hasModification && itemHasModification) {
+        return item['modification']['id'] == product['modification']['id'];
+      }
+
+      // If we got here, both products have the same ID and neither has a modification
+      return true;
+    });
 
     if (existingIndex >= 0) {
-      // If product exists, increase quantity
-      _cartItems[existingIndex]['quantity'] += 1;
-      debugPrint("🔄 Item already in cart, increased quantity to ${_cartItems[existingIndex]['quantity']}");
+      // If exact same product exists (including modification), update its quantity
+      // If the product has a specified quantity, use it, otherwise increment by 1
+      if (product.containsKey('quantity') && product['quantity'] > 0) {
+        _cartItems[existingIndex]['quantity'] = product['quantity'];
+        debugPrint(
+          "🔄 Item updated in cart with quantity: ${product['quantity']}",
+        );
+      } else {
+        _cartItems[existingIndex]['quantity'] += 1;
+        debugPrint(
+          "🔄 Item quantity incremented to: ${_cartItems[existingIndex]['quantity']}",
+        );
+      }
     } else {
-      // If product is new, add it with quantity 1
-      _cartItems.add({...product, 'quantity': 1});
-      debugPrint("✅ New item added to cart: ${product['name']}");
+      // If product is new, add it with specified quantity or default to 1
+      int quantity =
+          (product.containsKey('quantity') && product['quantity'] > 0)
+              ? product['quantity']
+              : 1;
+
+      _cartItems.add({...product, 'quantity': quantity});
+      debugPrint(
+        "✅ New item added to cart: ${product['name']} (Qty: $quantity)",
+      );
     }
 
     notifyListeners();
     _saveCartToCache();
   }
 
-  // Remove item from cart
   void removeItem(Map<String, dynamic> product) {
     debugPrint("🗑️ Removing item from cart: ${product['name']}");
 
-    _cartItems.removeWhere((item) => item['product_id'] == product['product_id']);
+    bool hasModification =
+        product.containsKey('modification') && product['modification'] != null;
+
+    _cartItems.removeWhere((item) {
+      // If product IDs don't match, keep the item
+      if (item['product_id'] != product['product_id']) return false;
+
+      // If one has a modification and the other doesn't, they're different
+      bool itemHasModification =
+          item.containsKey('modification') && item['modification'] != null;
+      if (hasModification != itemHasModification) return false;
+
+      // If both have modifications, compare the modification IDs
+      if (hasModification && itemHasModification) {
+        return item['modification']['id'] == product['modification']['id'];
+      }
+
+      // If we got here, both products have the same ID and neither has a modification
+      return true;
+    });
+
     notifyListeners();
     _saveCartToCache();
   }
 
-  // Update item quantity
-  void updateQuantity(int productId, int change) {
-    final index = _cartItems.indexWhere((item) => item['product_id'] == productId);
+  void updateQuantity(int productId, int change, {String? modificationId}) {
+    // Find the item in the cart based on product ID and modification ID (if provided)
+    final index = _cartItems.indexWhere((item) {
+      // Check product ID match
+      if (item['product_id'] != productId) return false;
+
+      // If modification ID is provided, check for exact match
+      if (modificationId != null) {
+        bool hasModification =
+            item.containsKey('modification') &&
+            item['modification'] != null &&
+            item['modification']['id'] != null;
+
+        if (!hasModification)
+          return false; // This item doesn't have modifications
+
+        return item['modification']['id'] == modificationId;
+      }
+
+      // If no modification ID provided, only match products without modifications
+      return !item.containsKey('modification') || item['modification'] == null;
+    });
 
     if (index >= 0) {
+      // Update the quantity
       _cartItems[index]['quantity'] += change;
 
+      // Ensure quantity never goes below 1
       if (_cartItems[index]['quantity'] <= 0) {
-        // If quantity is 0 or less, remove item from cart
+        // Remove item from cart
         _cartItems.removeAt(index);
         debugPrint("🗑️ Item removed from cart due to zero quantity");
       } else {
@@ -113,6 +197,8 @@ class CartProvider with ChangeNotifier {
 
       notifyListeners();
       _saveCartToCache();
+    } else {
+      debugPrint("⚠️ Failed to find item in cart for updating quantity");
     }
   }
 

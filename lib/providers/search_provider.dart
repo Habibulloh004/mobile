@@ -141,7 +141,6 @@ class SearchProvider with ChangeNotifier {
   }
 
   // Global search across all categories and products
-  // Global search across all categories and products
   Future<void> globalSearch(String query) async {
     if (query.isEmpty) {
       _searchResults = [];
@@ -159,6 +158,7 @@ class SearchProvider with ChangeNotifier {
 
     try {
       List<SearchResult> results = [];
+      List<ProductModel> allFoundProducts = []; // To collect all found products
 
       // First, make sure categories are loaded
       if (_categoryProvider.categories.isEmpty) {
@@ -194,6 +194,9 @@ class SearchProvider with ChangeNotifier {
             '📦 Fetched ${products.length} products for category: ${category.name}',
           );
 
+          // Add all products to our collected list - we'll add them to the provider later
+          allFoundProducts.addAll(products);
+
           for (var product in products) {
             if (product.name.toLowerCase().contains(query.toLowerCase())) {
               debugPrint(
@@ -216,6 +219,14 @@ class SearchProvider with ChangeNotifier {
             '❌ Error fetching products for category ${category.id}: $e',
           );
         }
+      }
+
+      // Important: Add all found products to the ProductProvider using the public method
+      if (allFoundProducts.isNotEmpty) {
+        debugPrint(
+          '⚙️ Adding ${allFoundProducts.length} products to ProductProvider',
+        );
+        _productProvider.addProducts(allFoundProducts);
       }
 
       debugPrint('🔍 Global search complete. Found ${results.length} results');

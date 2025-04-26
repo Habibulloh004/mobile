@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/category_provider.dart';
 import '../providers/cart_provider.dart';
@@ -88,55 +89,73 @@ class _MainPageState extends State<MainPage> {
       backgroundColor: ColorUtils.bodyColor,
       drawer: AppSidebar(),
       body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex < 2 ? _selectedIndex : 0,
-        // Keep active index within visible items
-        onTap: _onItemTapped,
-        selectedItemColor: ColorUtils.accentColor,
-        unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.white,
-        elevation: 8,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: "Главная",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view_outlined),
-            activeIcon: Icon(Icons.grid_view),
-            label: "Категории",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: "Профиль",
-          ),
-          BottomNavigationBarItem(
-            icon: Stack(
+      bottomNavigationBar: Container(
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: Offset(0, -1),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildAnimatedNavItem(0, 'assets/images/home.svg'),
+            _buildAnimatedNavItem(1, 'assets/images/menu.svg'),
+            _buildAnimatedNavItem(2, 'assets/images/user.svg'),
+            _buildAnimatedNavItem(3, 'assets/images/cart.svg'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedNavItem(int index, String iconPath) {
+    bool isSelected = _selectedIndex == index;
+
+    // Special case for cart to show badge
+    Widget navIcon =
+        index == 3
+            ? Stack(
+              clipBehavior: Clip.none,
               children: [
-                Icon(Icons.shopping_cart_outlined),
+                SvgPicture.asset(
+                  iconPath,
+                  color:
+                      isSelected
+                          ? ColorUtils.accentColor
+                          : ColorUtils.secondaryColor,
+                  width: 24,
+                  height: 24,
+                ),
                 Consumer<CartProvider>(
                   builder: (context, cartProvider, child) {
                     if (cartProvider.cartItems.isEmpty)
                       return SizedBox.shrink();
                     return Positioned(
-                      right: 0,
-                      top: 0,
+                      right: -8,
+                      top: -8,
                       child: Container(
-                        padding: EdgeInsets.all(2),
+                        padding: EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           color: Colors.red,
-                          borderRadius: BorderRadius.circular(8),
+                          shape: BoxShape.circle,
                         ),
                         constraints: BoxConstraints(
-                          minWidth: 12,
-                          minHeight: 12,
+                          minWidth: 16,
+                          minHeight: 16,
                         ),
                         child: Text(
                           cartProvider.itemCount.toString(),
-                          style: TextStyle(color: Colors.white, fontSize: 8),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -144,41 +163,39 @@ class _MainPageState extends State<MainPage> {
                   },
                 ),
               ],
+            )
+            : SvgPicture.asset(
+              iconPath,
+              color:
+                  isSelected
+                      ? ColorUtils.accentColor
+                      : ColorUtils.secondaryColor,
+              width: 24,
+              height: 24,
+            );
+
+    return GestureDetector(
+      onTap: () => _onItemTapped(index),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: MediaQuery.of(context).size.width / 4,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            navIcon,
+            SizedBox(height: 6),
+            AnimatedContainer(
+              duration: Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              height: 2,
+              width: isSelected ? 30 : 0,
+              decoration: BoxDecoration(
+                color: ColorUtils.accentColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            activeIcon: Stack(
-              children: [
-                Icon(Icons.shopping_cart),
-                Consumer<CartProvider>(
-                  builder: (context, cartProvider, child) {
-                    if (cartProvider.cartItems.isEmpty)
-                      return SizedBox.shrink();
-                    return Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        padding: EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        constraints: BoxConstraints(
-                          minWidth: 12,
-                          minHeight: 12,
-                        ),
-                        child: Text(
-                          cartProvider.itemCount.toString(),
-                          style: TextStyle(color: Colors.white, fontSize: 8),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-            label: "Корзина",
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -220,32 +237,21 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: ColorUtils.bodyColor,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.menu, color: ColorUtils.secondaryColor),
+          icon: SvgPicture.asset(
+            'assets/images/hambur.svg',
+            color: ColorUtils.secondaryColor, // Optional colorization
+            width: 24,
+            height: 24,
+          ),
           onPressed: () {
             Scaffold.of(context).openDrawer();
           },
         ),
-        title: Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: "Foo",
-                style: TextStyle(
-                  color: ColorUtils.accentColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: Constants.fontSizeXLarge,
-                ),
-              ),
-              TextSpan(
-                text: "dery",
-                style: TextStyle(
-                  color: ColorUtils.secondaryColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: Constants.fontSizeXLarge,
-                ),
-              ),
-            ],
-          ),
+        title: SvgPicture.asset(
+          'assets/images/appLogo.svg',
+          width: 30,
+          height: 30, // Optional colorization
+          fit: BoxFit.cover,
         ),
         centerTitle: true,
         actions: [
@@ -255,10 +261,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 alignment: Alignment.center,
                 children: [
                   IconButton(
-                    icon: Icon(
-                      Icons.shopping_cart,
-                      size: 28,
-                      color: ColorUtils.secondaryColor,
+                    icon: SvgPicture.asset(
+                      'assets/images/cart.svg',
+                      color: ColorUtils.secondaryColor, // Optional colorization
+                      width: 24,
+                      height: 24,
                     ),
                     onPressed: () {
                       Navigator.push(
@@ -455,19 +462,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     // Categories grid
                     if (filteredCategories.isNotEmpty)
+                      // In lib/views/main_page.dart
+                      // Find the GridView.builder in the _buildCategoriesGrid method or in the HomeScreen class
+                      // and update the crossAxisCount from 2 to 3
                       GridView.builder(
                         shrinkWrap: true,
                         physics: NeverScrollableScrollPhysics(),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 0.8,
+                          crossAxisCount: 3,
+                          // Changed from 2 to 3
+                          crossAxisSpacing: 12,
+                          // Reduced spacing to accommodate more columns
+                          mainAxisSpacing: 12,
+                          // Reduced spacing to accommodate more columns
+                          childAspectRatio:
+                              0.7, // Adjusted aspect ratio for smaller tiles
                         ),
                         itemCount:
                             _searchQuery.isEmpty &&
-                                    filteredCategories.length > 4
-                                ? 4 // Show only top 4 categories if not searching
+                                    filteredCategories.length > 6
+                                ? 6 // Increased from 4 to 6 to show two rows of categories
                                 : filteredCategories.length,
                         itemBuilder: (context, index) {
                           final category = filteredCategories[index];
@@ -487,12 +501,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             },
                             child: Container(
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 4),
+                                    blurRadius: 6,
+                                    offset: Offset(0, 3),
                                   ),
                                 ],
                               ),
@@ -502,7 +516,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Container(
                                     decoration: BoxDecoration(
                                       color: ColorUtils.primaryColor,
-                                      borderRadius: BorderRadius.circular(16),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Column(
                                       children: [
@@ -514,7 +528,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             child: ClipRRect(
                                               borderRadius:
                                                   BorderRadius.vertical(
-                                                    top: Radius.circular(16),
+                                                    top: Radius.circular(12),
                                                   ),
                                               child: Container(
                                                 width: double.infinity,
@@ -542,14 +556,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                           child: Container(
                                             width: double.infinity,
                                             padding: EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
+                                              horizontal: 8,
+                                              // Reduced padding for smaller tiles
+                                              vertical:
+                                                  4, // Reduced padding for smaller tiles
                                             ),
                                             decoration: BoxDecoration(
                                               color: Colors.white,
                                               borderRadius:
                                                   BorderRadius.vertical(
-                                                    bottom: Radius.circular(16),
+                                                    bottom: Radius.circular(12),
                                                   ),
                                             ),
                                             child: Column(
@@ -561,8 +577,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize:
-                                                        Constants
-                                                            .fontSizeRegular,
+                                                        Constants.fontSizeSmall,
+                                                    // Smaller font for 3 columns
                                                     color:
                                                         ColorUtils
                                                             .secondaryColor,
@@ -585,7 +601,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     child: Material(
                                       color: Colors.transparent,
                                       child: InkWell(
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(12),
                                         onTap: () {
                                           Navigator.push(
                                             context,
@@ -610,7 +626,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                         },
                       ),
-
                     // "More categories" button when not searching
                     if (_searchQuery.isEmpty &&
                         categoryProvider.categories.length > 4)

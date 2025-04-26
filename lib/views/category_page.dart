@@ -111,6 +111,12 @@ class _CategoryPageState extends State<CategoryPage>
       appBar: AppBar(
         backgroundColor: ColorUtils.bodyColor,
         elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.menu, color: ColorUtils.secondaryColor),
+          onPressed: () {
+            Scaffold.of(context).openDrawer();
+          },
+        ),
         title: Text(
           "Категории",
           style: TextStyle(
@@ -168,16 +174,26 @@ class _CategoryPageState extends State<CategoryPage>
         children: [
           // Enhanced Search Bar
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SearchBarWidget(
-              controller: _searchController,
-              onChanged: (value) => _onSearchChanged(),
-              hintText: "Поиск категорий...",
-              onClear: () {
-                setState(() {
-                  _searchQuery = '';
-                });
+            padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SearchPage()),
+                );
               },
+              child: AbsorbPointer(
+                child: SearchBarWidget(
+                  controller: _searchController,
+                  onChanged: (query) => _onSearchChanged(),
+                  hintText: "Поиск...",
+                  onClear: () {
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                  },
+                ),
+              ),
             ),
           ),
 
@@ -329,16 +345,20 @@ class _CategoryPageState extends State<CategoryPage>
       );
     }
 
+    // In lib/views/category_page.dart
+    // Find the GridView.builder in the _buildCategoriesGrid method
+    // and update the crossAxisCount from 2 to 3
+
     return RefreshIndicator(
       onRefresh: _loadCategories,
       color: ColorUtils.accentColor,
       child: GridView.builder(
         padding: EdgeInsets.all(16),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.8,
+          crossAxisCount: 3, // Changed from 2 to 3
+          crossAxisSpacing: 12, // Reduced spacing to accommodate more columns
+          mainAxisSpacing: 12, // Reduced spacing to accommodate more columns
+          childAspectRatio: 0.7, // Adjusted aspect ratio for smaller tiles
         ),
         itemCount: filteredCategories.length,
         itemBuilder: (context, index) {
@@ -408,8 +428,9 @@ class _CategoryPageState extends State<CategoryPage>
                           child: Container(
                             width: double.infinity,
                             padding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
+                              horizontal: 8,
+                              // Reduced padding for smaller tiles
+                              vertical: 4, // Reduced padding for smaller tiles
                             ),
                             decoration: BoxDecoration(
                               color: Colors.white,
@@ -424,7 +445,8 @@ class _CategoryPageState extends State<CategoryPage>
                                   category.name,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: Constants.fontSizeRegular,
+                                    fontSize: Constants.fontSizeSmall,
+                                    // Smaller font for 3 columns
                                     color: ColorUtils.secondaryColor,
                                   ),
                                   textAlign: TextAlign.center,

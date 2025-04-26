@@ -1,1 +1,0 @@
- /Users/mycomp/Documents/IT/Projects/Mobile/Poster_app/.dart_tool/flutter_build/8962d99d1e032cce048321e3e998bbb8/native_assets.json: 

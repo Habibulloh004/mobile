@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:poster_app/models/product_model.dart';
 import 'package:provider/provider.dart';
 import '../providers/search_provider.dart';
 import '../providers/category_provider.dart';
@@ -243,7 +245,12 @@ class _SearchPageState extends State<SearchPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.search, size: 64, color: Colors.grey[400]),
+                        SvgPicture.asset(
+                          'assets/images/search.svg',
+                          width: 32,
+                          height: 32, // Optional colorization
+                          fit: BoxFit.cover,
+                        ),
                         SizedBox(height: 16),
                         Text(
                           "Начните вводить запрос\nдля поиска категорий и товаров",
@@ -336,25 +343,38 @@ class _SearchPageState extends State<SearchPage> {
         onTap: () {
           if (isCategory) {
             // Navigate to category products
-            debugPrint('🔍 Navigating to category: ${result.name} (ID: ${result.id})');
+            debugPrint(
+              '🔍 Navigating to category: ${result.name} (ID: ${result.id})',
+            );
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ProductPage(
-                  categoryId: result.id,
-                  categoryName: result.name,
-                ),
+                builder:
+                    (context) => ProductPage(
+                      categoryId: result.id,
+                      categoryName: result.name,
+                    ),
               ),
             ).then((_) => debugPrint('⬅️ Returned from category page'));
           } else {
-            // Navigate to product details
-            debugPrint('🔍 Navigating to product: ${result.name} (ID: ${result.id})');
+            // For products, ensure the product data is accessible to ProductProvider
+            final productProvider = Provider.of<ProductProvider>(
+              context,
+              listen: false,
+            );
+            final product = result.data as ProductModel;
+
+            // Use the new addProduct method to ensure the product is in the provider
+            productProvider.addProduct(product);
+
+            // Now navigate to product details
+            debugPrint(
+              '🔍 Navigating to product: ${result.name} (ID: ${result.id})',
+            );
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ProductDetailPage(
-                  productId: result.id,
-                ),
+                builder: (context) => ProductDetailPage(productId: result.id),
               ),
             ).then((_) => debugPrint('⬅️ Returned from product detail page'));
           }

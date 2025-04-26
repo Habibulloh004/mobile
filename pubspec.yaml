@@ -34,6 +34,7 @@ dependencies:
   go_router: ^14.8.0
   dio: ^5.0.0
   shared_preferences: ^2.0.13
+  flutter_svg: ^2.0.9
 
 
 
@@ -61,6 +62,18 @@ flutter:
   assets:
     - assets/images/no_image.png
     - assets/images/banner.png
+    - assets/images/appLogo.svg
+    - assets/images/search.svg
+    - assets/images/cart.svg
+    - assets/images/hambur.svg
+    - assets/images/home.svg
+    - assets/images/menu.svg
+    - assets/images/user.svg
+    - assets/images/about-us.svg
+    - assets/images/bonus.svg
+    - assets/images/logout.svg
+    - assets/images/profile.svg
+    - assets/images/time.svg
     - assets/no_image.png
 
   # The following line ensures that the Material Icons font is

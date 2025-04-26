@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../utils/color_utils.dart';
 import '../views/login_page.dart';
 import '../views/profile_page.dart';
@@ -54,25 +55,11 @@ class _AppSidebarState extends State<AppSidebar> {
           children: [
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Text(
-                    "Foo",
-                    style: TextStyle(
-                      color: ColorUtils.accentColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: Constants.fontSizeXLarge,
-                    ),
-                  ),
-                  Text(
-                    "dery",
-                    style: TextStyle(
-                      color: ColorUtils.secondaryColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: Constants.fontSizeXLarge,
-                    ),
-                  ),
-                ],
+              child: SvgPicture.asset(
+                'assets/images/appLogo.svg',
+                width: 30,
+                height: 30, // Optional colorization
+                fit: BoxFit.cover,
               ),
             ),
             Divider(
@@ -82,28 +69,28 @@ class _AppSidebarState extends State<AppSidebar> {
             ),
             _isLoading
                 ? Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      ColorUtils.accentColor,
-                    ),
-                  ),
-                )
-                : Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    "Привет, $_userName!",
-                    style: TextStyle(
-                      fontSize: Constants.fontSizeMedium,
-                      fontWeight: FontWeight.bold,
-                      color: ColorUtils.secondaryColor,
-                    ),
-                  ),
+              padding: const EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  ColorUtils.accentColor,
                 ),
+              ),
+            )
+                : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                "Привет, $_userName!",
+                style: TextStyle(
+                  fontSize: Constants.fontSizeMedium,
+                  fontWeight: FontWeight.bold,
+                  color: ColorUtils.secondaryColor,
+                ),
+              ),
+            ),
             SizedBox(height: 16),
-            _buildMenuItem(
+            _buildMenuItemSvg(
               context,
-              icon: Icons.person_outline,
+              iconPath: 'assets/images/profile.svg',
               title: "Мой профиль",
               onTap: () {
                 Navigator.pop(context); // Close drawer
@@ -113,9 +100,9 @@ class _AppSidebarState extends State<AppSidebar> {
                 );
               },
             ),
-            _buildMenuItem(
+            _buildMenuItemSvg(
               context,
-              icon: Icons.history,
+              iconPath: 'assets/images/time.svg',
               title: "История заказов",
               onTap: () {
                 Navigator.pop(context);
@@ -125,9 +112,9 @@ class _AppSidebarState extends State<AppSidebar> {
                 );
               },
             ),
-            _buildMenuItem(
+            _buildMenuItemSvg(
               context,
-              icon: Icons.card_giftcard,
+              iconPath: 'assets/images/bonus.svg',
               title: "Бонусы",
               onTap: () {
                 Navigator.pop(context);
@@ -137,9 +124,9 @@ class _AppSidebarState extends State<AppSidebar> {
                 );
               },
             ),
-            _buildMenuItem(
+            _buildMenuItemSvg(
               context,
-              icon: Icons.info_outline,
+              iconPath: 'assets/images/about-us.svg',
               title: "О нас",
               onTap: () {
                 Navigator.pop(context);
@@ -155,9 +142,9 @@ class _AppSidebarState extends State<AppSidebar> {
               thickness: 1,
               color: Colors.grey.withOpacity(0.2),
             ),
-            _buildMenuItem(
+            _buildMenuItemSvg(
               context,
-              icon: Icons.logout,
+              iconPath: 'assets/images/logout.svg',
               title: "Выйти из аккаунта",
               onTap: () async {
                 // Clear user data and redirect to login page
@@ -165,7 +152,7 @@ class _AppSidebarState extends State<AppSidebar> {
                 await prefs.setBool("isLoggedIn", false);
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (context) => LoginPage()),
-                  (route) => false,
+                      (route) => false,
                 );
               },
             ),
@@ -176,12 +163,40 @@ class _AppSidebarState extends State<AppSidebar> {
     );
   }
 
+  Widget _buildMenuItemSvg(
+      BuildContext context, {
+        required String iconPath,
+        required String title,
+        required VoidCallback onTap,
+      }) {
+    return ListTile(
+      leading: Container(
+        width: 22,
+        height: 22,
+        child: SvgPicture.asset(
+          iconPath,
+          color: ColorUtils.secondaryColor,
+          fit: BoxFit.contain,
+        ),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: ColorUtils.secondaryColor,
+          fontSize: Constants.fontSizeRegular,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+
+  // Keep the original method as a fallback in case you need it
   Widget _buildMenuItem(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        required VoidCallback onTap,
+      }) {
     return ListTile(
       leading: Icon(icon, color: ColorUtils.secondaryColor, size: 22),
       title: Text(

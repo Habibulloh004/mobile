@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../utils/color_utils.dart';
 import '../constant/index.dart';
 
@@ -48,7 +49,15 @@ class SearchBarWidget extends StatelessWidget {
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: hintText,
-          prefixIcon: Icon(Icons.search, color: ColorUtils.accentColor),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: SvgPicture.asset(
+              'assets/images/search.svg',
+              width: 18,
+              height: 18,
+              colorFilter: ColorFilter.mode(Colors.grey[600]!, BlendMode.srcIn),
+            ),
+          ),
           suffixIcon:
               controller.text.isNotEmpty
                   ? IconButton(

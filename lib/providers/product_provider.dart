@@ -23,6 +23,34 @@ class ProductProvider with ChangeNotifier {
 
   int get currentCategoryId => _currentCategoryId;
 
+  // Add this method to your ProductProvider class
+
+  // Add a new product to the provider's list
+  void addProduct(ProductModel product) {
+    // Check if product already exists to avoid duplicates
+    if (!_products.any((p) => p.id == product.id)) {
+      _products.add(product);
+      notifyListeners();
+    }
+  }
+
+  // Add multiple products at once
+  void addProducts(List<ProductModel> newProducts) {
+    bool productsAdded = false;
+
+    for (var product in newProducts) {
+      // Add only if not already present
+      if (!_products.any((p) => p.id == product.id)) {
+        _products.add(product);
+        productsAdded = true;
+      }
+    }
+
+    if (productsAdded) {
+      notifyListeners();
+    }
+  }
+
   Future<void> loadProducts(int categoryId) async {
     if (_currentCategoryId == categoryId &&
         !_isLoading &&

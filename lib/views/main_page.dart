@@ -1,14 +1,17 @@
+// lib/views/main_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/category_provider.dart';
 import '../providers/cart_provider.dart';
+import '../providers/banner_provider.dart'; // Add this import
 import '../utils/color_utils.dart';
 import '../constant/index.dart';
 import '../helpers/index.dart';
 import '../widgets/search_bar_widget.dart';
 import '../widgets/app_sidebar.dart';
+import '../widgets/banner_slider.dart'; // Add this import
 import 'cart_page.dart';
 import 'product_page.dart';
 import 'category_page.dart';
@@ -398,6 +401,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
+
                     // Search results or categories title
                     Padding(
                       padding: EdgeInsets.only(top: 8, bottom: 16),
@@ -663,41 +667,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
 
-                    // Banner
-                    Container(
-                      margin: EdgeInsets.symmetric(vertical: 20),
-                      width: double.infinity,
-                      height: 150,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[700],
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.asset(
-                          "assets/images/banner.png",
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Center(
-                              child: Text(
-                                "POSSIBLE GROUP",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: Constants.fontSizeLarge,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                    // Banner Slider - Added here
+                    Consumer<BannerProvider>(
+                      builder: (context, bannerProvider, child) {
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: 20),
+                          child: BannerSlider(),
+                        );
+                      },
                     ),
 
                     SizedBox(height: 30),

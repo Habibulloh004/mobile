@@ -5,6 +5,7 @@ import 'package:poster_app/providers/cart_provider.dart';
 import 'package:poster_app/providers/category_provider.dart';
 import 'package:poster_app/providers/product_provider.dart';
 import 'package:poster_app/providers/search_provider.dart';
+import 'package:poster_app/providers/banner_provider.dart'; // Add this import
 import 'package:poster_app/views/main_page.dart';
 import 'package:poster_app/core/api_service.dart';
 import 'package:poster_app/utils/color_utils.dart';
@@ -41,11 +42,16 @@ void main() async {
 
   final categoryProvider = CategoryProvider(apiService);
   final productProvider = ProductProvider(apiService);
-  final searchProvider = SearchProvider(categoryProvider, productProvider, apiService);
+  final searchProvider = SearchProvider(
+    categoryProvider,
+    productProvider,
+    apiService,
+  );
+  final bannerProvider = BannerProvider(apiService); // Add this line
 
   // Start loading data in background
   categoryProvider.loadCategories().catchError(
-        (e) => print("Initial category data load failed: $e"),
+    (e) => print("Initial category data load failed: $e"),
   );
 
   runApp(
@@ -56,6 +62,7 @@ void main() async {
         ChangeNotifierProvider.value(value: productProvider),
         ChangeNotifierProvider.value(value: cartProvider),
         ChangeNotifierProvider.value(value: searchProvider),
+        ChangeNotifierProvider.value(value: bannerProvider), // Add this line
       ],
       child: MyApp(),
     ),

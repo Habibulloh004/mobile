@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/cart_provider.dart';
@@ -103,10 +104,11 @@ class _ProductPageState extends State<ProductPage>
                 alignment: Alignment.center,
                 children: [
                   IconButton(
-                    icon: Icon(
-                      Icons.shopping_cart,
-                      size: 28,
-                      color: ColorUtils.secondaryColor,
+                    icon: SvgPicture.asset(
+                      'assets/images/cart.svg',
+                      color: ColorUtils.secondaryColor, // Optional colorization
+                      width: 24,
+                      height: 24,
                     ),
                     onPressed: () {
                       Navigator.push(

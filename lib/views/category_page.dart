@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/cart_provider.dart';
@@ -112,7 +113,12 @@ class _CategoryPageState extends State<CategoryPage>
         backgroundColor: ColorUtils.bodyColor,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.menu, color: ColorUtils.secondaryColor),
+          icon: SvgPicture.asset(
+            'assets/images/hambur.svg',
+            color: ColorUtils.secondaryColor, // Optional colorization
+            width: 24,
+            height: 24,
+          ),
           onPressed: () {
             Scaffold.of(context).openDrawer();
           },
@@ -132,10 +138,11 @@ class _CategoryPageState extends State<CategoryPage>
                 alignment: Alignment.center,
                 children: [
                   IconButton(
-                    icon: Icon(
-                      Icons.shopping_cart,
-                      size: 28,
-                      color: ColorUtils.secondaryColor,
+                    icon: SvgPicture.asset(
+                      'assets/images/cart.svg',
+                      color: ColorUtils.secondaryColor, // Optional colorization
+                      width: 24,
+                      height: 24,
                     ),
                     onPressed: () {
                       Navigator.push(

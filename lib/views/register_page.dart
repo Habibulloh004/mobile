@@ -1,9 +1,81 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../core/api_service.dart';
 import '../utils/color_utils.dart';
 import '../constant/index.dart';
 import 'login_page.dart';
 import 'main_page.dart';
+
+// Including the formatter directly in this file to ensure it works properly
+class UzbekPhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Always ensure the phone number starts with +998
+    if (!newValue.text.startsWith('+998')) {
+      return oldValue;
+    }
+
+    // Handle backspace
+    if (oldValue.text.length > newValue.text.length) {
+      return newValue;
+    }
+
+    // Get only digits after +998
+    String digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.startsWith('998')) {
+      digitsOnly = digitsOnly.substring(3); // Remove 998 from the digits
+    }
+
+    // Build formatted number
+    String formatted = '+998';
+
+    // Add spacing and formatting based on the length of the digits
+    if (digitsOnly.isNotEmpty) {
+      // Add the area code with parentheses if we have it
+      if (digitsOnly.length > 0) {
+        // Add opening parenthesis and space after +998
+        formatted += ' (';
+        formatted += digitsOnly.substring(0, min(2, digitsOnly.length));
+
+        // Add closing parenthesis
+        if (digitsOnly.length > 2) {
+          formatted += ') ';
+
+          // Add the next 3 digits with spacing
+          formatted += digitsOnly.substring(2, min(5, digitsOnly.length));
+
+          if (digitsOnly.length > 5) {
+            formatted += ' ';
+            formatted += digitsOnly.substring(5, min(7, digitsOnly.length));
+
+            if (digitsOnly.length > 7) {
+              formatted += ' ';
+              formatted += digitsOnly.substring(7, min(9, digitsOnly.length));
+            }
+          }
+        }
+      }
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  int min(int a, int b) {
+    return a < b ? a : b;
+  }
+}
+
+// Helper function to get raw phone number without formatting
+String getRawPhoneNumber(String formattedNumber) {
+  return formattedNumber.replaceAll(RegExp(r'\D'), '');
+}
 
 class RegisterPage extends StatefulWidget {
   @override
@@ -12,7 +84,9 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
+
+  // Initialize phone controller with +998
+  final _phoneController = TextEditingController(text: '+998');
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _apiService = ApiService();
@@ -58,10 +132,11 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    // Validate phone number format
-    String cleanPhone = _phoneController.text.replaceAll(' ', '').trim();
-    RegExp phoneRegExp = RegExp(r'^\+?[0-9]{10,13}$');
-    if (!phoneRegExp.hasMatch(cleanPhone)) {
+    // Get raw phone number and validate it
+    String rawPhone = getRawPhoneNumber(_phoneController.text);
+
+    // Ensure raw phone has the correct format (+998 followed by 9 digits)
+    if (rawPhone.length < 12 || !rawPhone.startsWith('998')) {
       setState(() {
         _errorMessage = 'Введите корректный номер телефона';
       });
@@ -76,7 +151,7 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       final clientId = await _apiService.registerUser(
         _nameController.text.trim(),
-        _phoneController.text.trim(),
+        rawPhone, // Use raw phone number for API call
         _passwordController.text.trim(),
       );
 
@@ -113,27 +188,11 @@ class _RegisterPageState extends State<RegisterPage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(height: 40),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: "Foo",
-                        style: TextStyle(
-                          color: ColorUtils.accentColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: Constants.fontSizeXLarge,
-                        ),
-                      ),
-                      TextSpan(
-                        text: "dery",
-                        style: TextStyle(
-                          color: ColorUtils.secondaryColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: Constants.fontSizeXLarge,
-                        ),
-                      ),
-                    ],
-                  ),
+                SvgPicture.asset(
+                  'assets/images/appLogo.svg',
+                  width: 30,
+                  height: 30,
+                  fit: BoxFit.cover,
                 ),
                 SizedBox(height: 30),
                 Container(
@@ -172,9 +231,11 @@ class _RegisterPageState extends State<RegisterPage> {
                       SizedBox(height: 12),
                       TextField(
                         controller: _phoneController,
+                        // Add the phone formatter
+                        inputFormatters: [UzbekPhoneFormatter()],
                         decoration: InputDecoration(
                           labelText: "Номер телефона",
-                          hintText: "+998 XX XXX XX XX",
+                          hintText: "+998 (XX) XXX XX XX",
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(

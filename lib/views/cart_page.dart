@@ -299,6 +299,8 @@ class CartPage extends StatelessWidget {
 
     // Extract price and quantity
     final price = item['price'] ?? 0;
+    final basePrice =
+        item['base_price'] ?? price; // Get original base price if available
     final quantity = item['quantity'] ?? 1;
     final totalPrice = price * quantity;
 
@@ -307,6 +309,7 @@ class CartPage extends StatelessWidget {
         hasModification ? item['modification']['name'] : null;
     final modificationPrice =
         hasModification ? (item['modification']['price'] ?? 0) : 0;
+    final modificationId = hasModification ? item['modification']['id'] : null;
     final modificationPhotoUrl =
         hasModification ? item['modification']['photoUrl'] : null;
 
@@ -475,8 +478,7 @@ class CartPage extends StatelessWidget {
                                       cartProvider.updateQuantity(
                                         item['product_id'],
                                         -1,
-                                        modificationId:
-                                            item['modification']['id'],
+                                        modificationId: modificationId,
                                       );
                                     } else {
                                       cartProvider.updateQuantity(
@@ -504,8 +506,7 @@ class CartPage extends StatelessWidget {
                                       cartProvider.updateQuantity(
                                         item['product_id'],
                                         1,
-                                        modificationId:
-                                            item['modification']['id'],
+                                        modificationId: modificationId,
                                       );
                                     } else {
                                       cartProvider.updateQuantity(

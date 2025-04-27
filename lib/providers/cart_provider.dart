@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../helpers/index.dart';
+import '../models/product_model.dart';
 
 class CartProvider with ChangeNotifier {
   List<Map<String, dynamic>> _cartItems = [];
@@ -66,39 +67,43 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  // Update the CartProvider methods to handle both types of modifications
+  // Find an item in the cart by product ID and modification ID
+  int _findCartItemIndex(Map<String, dynamic> product) {
+    // Extract the modification ID if present
+    final String? modificationId =
+        product.containsKey('modification') && product['modification'] != null
+            ? product['modification']['id']?.toString()
+            : null;
+
+    for (int i = 0; i < _cartItems.length; i++) {
+      final item = _cartItems[i];
+
+      // If product IDs don't match, this is not our item
+      if (item['product_id'] != product['product_id']) {
+        continue;
+      }
+
+      // Check modification match
+      final bool itemHasModification =
+          item.containsKey('modification') && item['modification'] != null;
+      final String? itemModificationId =
+          itemHasModification ? item['modification']['id']?.toString() : null;
+
+      // Both have the same modification status (either both have modifications or neither does)
+      if ((modificationId == null && itemModificationId == null) ||
+          (modificationId != null && itemModificationId == modificationId)) {
+        return i;
+      }
+    }
+
+    return -1; // Item not found
+  }
 
   void addItem(Map<String, dynamic> product) {
     debugPrint("📌 Adding item to cart: ${product['name']}");
 
-    // Check if product has a modification
-    bool hasModification =
-        product.containsKey('modification') && product['modification'] != null;
-
-    // Create a unique identifier that includes both product ID and modification ID (if any)
-    String uniqueId = product['product_id'].toString();
-    if (hasModification) {
-      uniqueId += "_${product['modification']['id']}";
-    }
-
-    // Check if this exact product (with the same modification if any) already exists in cart
-    final existingIndex = _cartItems.indexWhere((item) {
-      // If the base product IDs don't match, it's definitely different
-      if (item['product_id'] != product['product_id']) return false;
-
-      // If one has a modification and the other doesn't, they're different
-      bool itemHasModification =
-          item.containsKey('modification') && item['modification'] != null;
-      if (hasModification != itemHasModification) return false;
-
-      // If both have modifications, compare the modification IDs
-      if (hasModification && itemHasModification) {
-        return item['modification']['id'] == product['modification']['id'];
-      }
-
-      // If we got here, both products have the same ID and neither has a modification
-      return true;
-    });
+    // Find this exact product in the cart
+    final existingIndex = _findCartItemIndex(product);
 
     if (existingIndex >= 0) {
       // If exact same product exists (including modification), update its quantity
@@ -134,53 +139,27 @@ class CartProvider with ChangeNotifier {
   void removeItem(Map<String, dynamic> product) {
     debugPrint("🗑️ Removing item from cart: ${product['name']}");
 
-    bool hasModification =
-        product.containsKey('modification') && product['modification'] != null;
-
-    _cartItems.removeWhere((item) {
-      // If product IDs don't match, keep the item
-      if (item['product_id'] != product['product_id']) return false;
-
-      // If one has a modification and the other doesn't, they're different
-      bool itemHasModification =
-          item.containsKey('modification') && item['modification'] != null;
-      if (hasModification != itemHasModification) return false;
-
-      // If both have modifications, compare the modification IDs
-      if (hasModification && itemHasModification) {
-        return item['modification']['id'] == product['modification']['id'];
-      }
-
-      // If we got here, both products have the same ID and neither has a modification
-      return true;
-    });
-
-    notifyListeners();
-    _saveCartToCache();
+    final index = _findCartItemIndex(product);
+    if (index >= 0) {
+      _cartItems.removeAt(index);
+      notifyListeners();
+      _saveCartToCache();
+      debugPrint("✅ Item removed successfully");
+    } else {
+      debugPrint("⚠️ Item not found in cart");
+    }
   }
 
   void updateQuantity(int productId, int change, {String? modificationId}) {
-    // Find the item in the cart based on product ID and modification ID (if provided)
-    final index = _cartItems.indexWhere((item) {
-      // Check product ID match
-      if (item['product_id'] != productId) return false;
+    // Create a dummy product to use _findCartItemIndex
+    final Map<String, dynamic> dummyProduct = {'product_id': productId};
 
-      // If modification ID is provided, check for exact match
-      if (modificationId != null) {
-        bool hasModification =
-            item.containsKey('modification') &&
-            item['modification'] != null &&
-            item['modification']['id'] != null;
+    // Add modification if provided
+    if (modificationId != null) {
+      dummyProduct['modification'] = {'id': modificationId};
+    }
 
-        if (!hasModification)
-          return false; // This item doesn't have modifications
-
-        return item['modification']['id'] == modificationId;
-      }
-
-      // If no modification ID provided, only match products without modifications
-      return !item.containsKey('modification') || item['modification'] == null;
-    });
+    final index = _findCartItemIndex(dummyProduct);
 
     if (index >= 0) {
       // Update the quantity
@@ -229,5 +208,11 @@ class CartProvider with ChangeNotifier {
   // Get total number of items in cart
   int get itemCount {
     return _cartItems.fold(0, (sum, item) => sum + (item['quantity'] as int));
+  }
+
+  // Add a product model directly to cart
+  void addProductModel(ProductModel product) {
+    final cartItem = product.toCartItem();
+    addItem(cartItem);
   }
 }

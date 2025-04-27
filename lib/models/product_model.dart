@@ -1,4 +1,4 @@
-// In product_model.dart, first add new classes for group modifications
+// In product_model.dart, updated to handle default modification selection
 
 import 'package:poster_app/helpers/index.dart';
 
@@ -41,7 +41,6 @@ class GroupModification {
   }
 }
 
-// Then update the ProductModification class to work with the new format
 class ProductModification {
   final String id;
   final String name;
@@ -78,7 +77,6 @@ class ProductModification {
   }
 }
 
-// Update the ProductModel class to include group modifications
 class ProductModel {
   final int id;
   final String name;
@@ -91,6 +89,14 @@ class ProductModel {
   final List<GroupModification>? groupModifications; // Added for new format
   final bool isAvailable;
   ProductModification? selectedModification;
+
+  // Effective price that accounts for selected modification
+  int get effectivePrice {
+    if (selectedModification != null) {
+      return price + selectedModification!.price;
+    }
+    return price;
+  }
 
   ProductModel({
     required this.id,
@@ -106,11 +112,6 @@ class ProductModel {
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
-    // Log JSON product data for debugging
-    // debugPrint(
-    //   "📦 Parsing product data: ${json['product_id']} - ${json['product_name']}",
-    // );
-
     // Clean product name (remove anything after $ if present)
     final cleanedName = cleanProductName(
       json['product_name'] ?? "Без названия",
@@ -133,9 +134,6 @@ class ProductModel {
           (json['modifications'] as List)
               .map((mod) => ProductModification.fromJson(mod))
               .toList();
-      // debugPrint(
-      //   "🧩 Found ${modifications.length} modifications for product ${json['product_id']}",
-      // );
     }
 
     // Parse new group_modifications if available
@@ -145,12 +143,10 @@ class ProductModel {
           (json['group_modifications'] as List)
               .map((group) => GroupModification.fromJson(group))
               .toList();
-      // debugPrint(
-      //   "🧩 Found ${groupModifications.length} group modifications for product ${json['product_id']}",
-      // );
     }
 
-    return ProductModel(
+    // Create the product model
+    final product = ProductModel(
       id: int.tryParse(json['product_id']?.toString() ?? '0') ?? 0,
       name: cleanedName,
       price: price,
@@ -162,6 +158,20 @@ class ProductModel {
       groupModifications: groupModifications,
       isAvailable: isAvailable,
     );
+
+    // Pre-select the first modification if available
+    if (product.groupModifications != null &&
+        product.groupModifications!.isNotEmpty) {
+      final firstGroup = product.groupModifications!.first;
+      if (firstGroup.modifications.isNotEmpty) {
+        product.selectedModification = firstGroup.modifications.first;
+      }
+    } else if (product.modifications != null &&
+        product.modifications!.isNotEmpty) {
+      product.selectedModification = product.modifications!.first;
+    }
+
+    return product;
   }
 
   // Convert to a map for cart storage
@@ -170,7 +180,10 @@ class ProductModel {
     Map<String, dynamic> cartItem = {
       'product_id': id,
       'name': name,
-      'price': price,
+      'price': effectivePrice,
+      // Use the effective price that includes modification
+      'base_price': price,
+      // Store the original base price
       'imageUrl': imageUrl,
       'quantity': quantity,
       'isAvailable': isAvailable,
@@ -184,18 +197,17 @@ class ProductModel {
         'price': selectedModification!.price,
         'photoUrl': selectedModification!.photoUrl,
       };
-
-      // If the modification has a price, add it to the product price
-      if (selectedModification!.price > 0) {
-        cartItem['original_price'] =
-            price; // Store original price for reference
-        cartItem['price'] =
-            price +
-            selectedModification!.price; // Update price with modification
-      }
     }
 
     return cartItem;
+  }
+
+  // Create a unique key for this product + modification combination
+  String get uniqueKey {
+    if (selectedModification != null) {
+      return '${id}_${selectedModification!.id}';
+    }
+    return id.toString();
   }
 
   // Helper method to get all available modifications from both sources

@@ -22,7 +22,6 @@ class ProductDetailPage extends StatefulWidget {
 
 class _ProductDetailPageState extends State<ProductDetailPage> {
   int _quantity = 1;
-  ProductModification? _selectedModification;
   bool _productLoading = false;
 
   @override
@@ -136,13 +135,29 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       );
     }
 
-    // Check if this product is in the cart
-    final cartItem = cartProvider.cartItems.firstWhere(
-      (item) => item['product_id'] == product.id,
-      orElse: () => {"quantity": 0},
-    );
+    // Check if this product+modification combination is in the cart
+    final cartItems =
+        cartProvider.cartItems.where((item) {
+          if (item['product_id'] != product.id) return false;
 
-    final cartQuantity = cartItem["quantity"] ?? 0;
+          // Check if both have matching modifications
+          final bool itemHasModification =
+              item.containsKey('modification') && item['modification'] != null;
+          final String? itemModificationId =
+              itemHasModification
+                  ? item['modification']['id']?.toString()
+                  : null;
+
+          final bool productHasModification =
+              product.selectedModification != null;
+          final String? productModificationId =
+              productHasModification ? product.selectedModification!.id : null;
+
+          return itemModificationId == productModificationId;
+        }).toList();
+
+    final int cartQuantity =
+        cartItems.isNotEmpty ? cartItems.first['quantity'] : 0;
 
     // Update the quantity if the product is already in the cart
     if (cartQuantity > 0 && _quantity == 1) {
@@ -270,7 +285,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                       SizedBox(width: 16),
                       Text(
-                        formatPrice(product.price),
+                        formatPrice(product.effectivePrice),
                         style: TextStyle(
                           fontSize: Constants.fontSizeLarge,
                           fontWeight: FontWeight.bold,
@@ -279,6 +294,48 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                     ],
                   ),
+
+                  // Current selected modification
+                  if (product.selectedModification != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ColorUtils.primaryColor,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: ColorUtils.accentColor.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Text(
+                              product.selectedModification!.name,
+                              style: TextStyle(
+                                color: ColorUtils.accentColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: Constants.fontSizeSmall,
+                              ),
+                            ),
+                          ),
+                          if (product.selectedModification!.price > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8.0),
+                              child: Text(
+                                "(+${formatPrice(product.selectedModification!.price)})",
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: Constants.fontSizeSmall,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
 
                   SizedBox(height: 16),
 
@@ -348,36 +405,16 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                       ),
                                     ),
                                   ),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
+                                Column(
                                   children:
                                       group.modifications.map((mod) {
                                         bool isSelected =
-                                            _selectedModification?.id == mod.id;
-                                        return ChoiceChip(
-                                          label: Text(mod.name),
-                                          selected: isSelected,
-                                          selectedColor: ColorUtils.accentColor
-                                              .withOpacity(0.2),
-                                          backgroundColor:
-                                              ColorUtils.primaryColor,
-                                          labelStyle: TextStyle(
-                                            color:
-                                                isSelected
-                                                    ? ColorUtils.accentColor
-                                                    : ColorUtils.secondaryColor,
-                                            fontWeight:
-                                                isSelected
-                                                    ? FontWeight.bold
-                                                    : FontWeight.normal,
-                                          ),
-                                          onSelected: (selected) {
-                                            setState(() {
-                                              _selectedModification =
-                                                  selected ? mod : null;
-                                            });
-                                          },
+                                            product.selectedModification?.id ==
+                                            mod.id;
+                                        return _buildModificationTile(
+                                          product,
+                                          mod,
+                                          isSelected,
                                         );
                                       }).toList(),
                                 ),
@@ -406,35 +443,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           ),
                         ),
                         SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                        Column(
                           children:
                               product.modifications!.map((mod) {
                                 bool isSelected =
-                                    _selectedModification?.id == mod.id;
-                                return ChoiceChip(
-                                  label: Text(mod.name),
-                                  selected: isSelected,
-                                  selectedColor: ColorUtils.accentColor
-                                      .withOpacity(0.2),
-                                  backgroundColor: ColorUtils.primaryColor,
-                                  labelStyle: TextStyle(
-                                    color:
-                                        isSelected
-                                            ? ColorUtils.accentColor
-                                            : ColorUtils.secondaryColor,
-                                    fontWeight:
-                                        isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                  ),
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      _selectedModification =
-                                          selected ? mod : null;
-                                    });
-                                  },
+                                    product.selectedModification?.id == mod.id;
+                                return _buildModificationTile(
+                                  product,
+                                  mod,
+                                  isSelected,
                                 );
                               }).toList(),
                         ),
@@ -503,22 +520,30 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
+                                // Ensure a product has a selected modification if modifications are available
+                                if ((product.modifications != null &&
+                                        product.modifications!.isNotEmpty) ||
+                                    (product.groupModifications != null &&
+                                        product
+                                            .groupModifications!
+                                            .isNotEmpty)) {
+                                  if (product.selectedModification == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          "Пожалуйста, выберите вариант",
+                                        ),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                }
+
                                 // Prepare cart item data
                                 Map<String, dynamic> cartItem =
                                     product.toCartItem();
                                 cartItem['quantity'] = _quantity;
-
-                                // Add modification info if selected
-                                if (_selectedModification != null) {
-                                  cartItem['selectedModification'] =
-                                      _selectedModification;
-                                  cartItem['modification'] = {
-                                    'id': _selectedModification!.id,
-                                    'name': _selectedModification!.name,
-                                    'price': _selectedModification!.price,
-                                    'photoUrl': _selectedModification!.photoUrl,
-                                  };
-                                }
 
                                 // Add to cart
                                 cartProvider.addItem(cartItem);
@@ -558,6 +583,89 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Create a custom tile for showing modification options
+  Widget _buildModificationTile(
+    ProductModel product,
+    ProductModification mod,
+    bool isSelected,
+  ) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          product.selectedModification = mod;
+        });
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        margin: EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color:
+              isSelected
+                  ? ColorUtils.accentColor.withOpacity(0.1)
+                  : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color:
+                isSelected
+                    ? ColorUtils.accentColor
+                    : Colors.grey.withOpacity(0.3),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Selected indicator
+            if (isSelected)
+              Container(
+                width: 18,
+                height: 18,
+                margin: EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  color: ColorUtils.accentColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.check, color: Colors.white, size: 14),
+              )
+            else
+              Container(
+                width: 18,
+                height: 18,
+                margin: EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.grey.withOpacity(0.5)),
+                ),
+              ),
+
+            // Modification name
+            Expanded(
+              child: Text(
+                mod.name,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: ColorUtils.secondaryColor,
+                  fontSize: Constants.fontSizeRegular,
+                ),
+              ),
+            ),
+
+            // Price
+            if (mod.price > 0)
+              Text(
+                "+${formatPrice(mod.price)}",
+                style: TextStyle(
+                  color: isSelected ? ColorUtils.accentColor : Colors.grey[600],
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: Constants.fontSizeRegular,
+                ),
+              ),
           ],
         ),
       ),

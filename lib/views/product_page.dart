@@ -6,6 +6,7 @@ import '../providers/cart_provider.dart';
 import '../utils/color_utils.dart';
 import '../constant/index.dart';
 import '../helpers/index.dart';
+import '../models/product_model.dart';
 import '../widgets/search_bar_widget.dart';
 import 'product_detail_page.dart';
 import 'cart_page.dart';
@@ -308,12 +309,31 @@ class _ProductPageState extends State<ProductPage>
                       final product = products[index];
                       final cartProvider = Provider.of<CartProvider>(context);
 
-                      // Check if this product is in the cart
-                      final cartItem = cartProvider.cartItems.firstWhere(
-                        (item) => item['product_id'] == product.id,
-                        orElse: () => {"quantity": 0},
-                      );
-                      final int quantity = cartItem["quantity"] ?? 0;
+                      // Check if this product is in the cart with the current selected modification
+                      final String? modificationId =
+                          product.selectedModification?.id;
+
+                      // Look for this product with this modification in the cart
+                      final cartItems =
+                          cartProvider.cartItems.where((item) {
+                            if (item['product_id'] != product.id) return false;
+
+                            // Check modification match
+                            final bool itemHasModification =
+                                item.containsKey('modification') &&
+                                item['modification'] != null;
+                            final String? itemModificationId =
+                                itemHasModification
+                                    ? item['modification']['id']?.toString()
+                                    : null;
+
+                            return modificationId == itemModificationId;
+                          }).toList();
+
+                      final int quantity =
+                          cartItems.isNotEmpty
+                              ? cartItems.first['quantity'] ?? 0
+                              : 0;
 
                       return GestureDetector(
                         onTap: () {
@@ -360,6 +380,33 @@ class _ProductPageState extends State<ProductPage>
                                         ),
                                       ),
                                     ),
+                                    // Show modification tag if product has modifications
+                                    if (product.selectedModification != null)
+                                      Positioned(
+                                        top: 8,
+                                        right: 8,
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: ColorUtils.accentColor
+                                                .withOpacity(0.9),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            product.selectedModification!.name,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -380,7 +427,7 @@ class _ProductPageState extends State<ProductPage>
                                     ),
                                     SizedBox(height: 4),
                                     Text(
-                                      formatPrice(product.price),
+                                      formatPrice(product.effectivePrice),
                                       style: TextStyle(
                                         color: ColorUtils.accentColor,
                                         fontWeight: FontWeight.bold,
@@ -399,11 +446,24 @@ class _ProductPageState extends State<ProductPage>
                                                 children: [
                                                   InkWell(
                                                     onTap: () {
-                                                      cartProvider
-                                                          .updateQuantity(
-                                                            product.id,
-                                                            -1,
-                                                          );
+                                                      if (product
+                                                              .selectedModification !=
+                                                          null) {
+                                                        cartProvider.updateQuantity(
+                                                          product.id,
+                                                          -1,
+                                                          modificationId:
+                                                              product
+                                                                  .selectedModification!
+                                                                  .id,
+                                                        );
+                                                      } else {
+                                                        cartProvider
+                                                            .updateQuantity(
+                                                              product.id,
+                                                              -1,
+                                                            );
+                                                      }
                                                     },
                                                     child: Container(
                                                       padding: EdgeInsets.all(
@@ -455,11 +515,24 @@ class _ProductPageState extends State<ProductPage>
                                                   ),
                                                   InkWell(
                                                     onTap: () {
-                                                      cartProvider
-                                                          .updateQuantity(
-                                                            product.id,
-                                                            1,
-                                                          );
+                                                      if (product
+                                                              .selectedModification !=
+                                                          null) {
+                                                        cartProvider.updateQuantity(
+                                                          product.id,
+                                                          1,
+                                                          modificationId:
+                                                              product
+                                                                  .selectedModification!
+                                                                  .id,
+                                                        );
+                                                      } else {
+                                                        cartProvider
+                                                            .updateQuantity(
+                                                              product.id,
+                                                              1,
+                                                            );
+                                                      }
                                                     },
                                                     child: Container(
                                                       padding: EdgeInsets.all(
@@ -487,24 +560,51 @@ class _ProductPageState extends State<ProductPage>
                                               )
                                               : OutlinedButton(
                                                 onPressed: () {
-                                                  cartProvider.addItem(
-                                                    product.toCartItem(),
-                                                  );
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(
-                                                        "Товар добавлен в корзину",
+                                                  // Check if product has modifications
+                                                  if ((product.modifications !=
+                                                              null &&
+                                                          product
+                                                              .modifications!
+                                                              .isNotEmpty) ||
+                                                      (product.groupModifications !=
+                                                              null &&
+                                                          product
+                                                              .groupModifications!
+                                                              .isNotEmpty)) {
+                                                    // Navigate to product detail for selection
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder:
+                                                            (context) =>
+                                                                ProductDetailPage(
+                                                                  productId:
+                                                                      product
+                                                                          .id,
+                                                                ),
                                                       ),
-                                                      duration: Duration(
-                                                        seconds: 1,
+                                                    );
+                                                  } else {
+                                                    // Add directly to cart
+                                                    cartProvider.addItem(
+                                                      product.toCartItem(),
+                                                    );
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      SnackBar(
+                                                        content: Text(
+                                                          "Товар добавлен в корзину",
+                                                        ),
+                                                        duration: Duration(
+                                                          seconds: 1,
+                                                        ),
+                                                        behavior:
+                                                            SnackBarBehavior
+                                                                .floating,
                                                       ),
-                                                      behavior:
-                                                          SnackBarBehavior
-                                                              .floating,
-                                                    ),
-                                                  );
+                                                    );
+                                                  }
                                                 },
                                                 style: OutlinedButton.styleFrom(
                                                   padding: EdgeInsets.symmetric(
@@ -522,7 +622,18 @@ class _ProductPageState extends State<ProductPage>
                                                   ),
                                                 ),
                                                 child: Text(
-                                                  "В корзину",
+                                                  (product.modifications !=
+                                                                  null &&
+                                                              product
+                                                                  .modifications!
+                                                                  .isNotEmpty) ||
+                                                          (product.groupModifications !=
+                                                                  null &&
+                                                              product
+                                                                  .groupModifications!
+                                                                  .isNotEmpty)
+                                                      ? "Выбрать"
+                                                      : "В корзину",
                                                   style: TextStyle(
                                                     color:
                                                         ColorUtils.accentColor,

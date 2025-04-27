@@ -32,7 +32,7 @@ class _MainPageState extends State<MainPage> {
 
   final List<Widget> _pages = [
     HomeScreen(),
-    CategoryPage(),
+    CategoryPage(fromBottomNav: true),
     Container(), // Profile (will be handled in onItemTapped)
     Container(), // Cart (will be handled in onItemTapped)
   ];
@@ -630,7 +630,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                         },
                       ),
-                    // "More categories" button when not searching
+                    // This is a partial update focusing only on the "More categories" button
+                    // in the HomeScreen class of MainPage.dart
+
+                    // Find the "More categories" button in the GridView section and update it like this:
                     if (_searchQuery.isEmpty &&
                         categoryProvider.categories.length > 4)
                       Padding(
@@ -641,7 +644,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => CategoryPage(),
+                                  builder:
+                                      (context) =>
+                                          CategoryPage(fromBottomNav: false),
                                 ),
                               );
                             },

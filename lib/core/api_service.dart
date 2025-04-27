@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/category_model.dart';
 import '../models/product_model.dart';
 import '../models/order_model.dart';
+import '../models/banner_model.dart';
 import '../constant/index.dart';
 import 'package:flutter/foundation.dart';
 
@@ -17,12 +18,14 @@ class ApiService {
   static const String PRODUCTS_CACHE_PREFIX = 'products_data_';
   static const String USER_CACHE_KEY = 'user_data';
   static const String ORDERS_CACHE_KEY = 'orders_data';
+  static const String BANNER_CACHE_KEY = 'banner_data';
 
   // Cache durations in milliseconds
   static const int ADMIN_CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 1 month
   static const int CATEGORIES_CACHE_DURATION = 3 * 60 * 60 * 1000; // 3 hours
   static const int PRODUCTS_CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour
   static const int ORDERS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 1 day
+  static const int BANNER_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 
   // Initialize with a default token for fallback
   ApiService() {
@@ -263,6 +266,80 @@ class ApiService {
           debugPrint('⚠️ Using expired cached products due to error');
           return cachedProducts
               .map((json) => ProductModel.fromJson(json))
+              .toList();
+        }
+      } catch (_) {
+        // Ignore cache reading errors
+      }
+
+      return []; // Return empty list if all fails
+    }
+  }
+
+  // Fetch banners with caching
+  Future<List<BannerModel>> fetchBanners() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? cachedData = prefs.getString(BANNER_CACHE_KEY);
+
+      if (cachedData != null) {
+        final Map<String, dynamic> bannersCache = jsonDecode(cachedData);
+        final int timestamp = bannersCache['timestamp'] ?? 0;
+
+        // Check if cache is still valid (7 days)
+        if (DateTime.now().millisecondsSinceEpoch - timestamp <
+            BANNER_CACHE_DURATION) {
+          debugPrint('✅ Using cached banners data');
+          final List<dynamic> cachedBanners = bannersCache['data'];
+          return cachedBanners
+              .map((json) => BannerModel.fromJson(json))
+              .toList();
+        }
+      }
+
+      // Cache expired or not available, fetch from API
+      final userId = Constants.userId;
+      final apiBaseUrl = Constants.apiBaseUrl;
+
+      debugPrint('🔍 Fetching banners from API');
+
+      final response = await _dio
+          .get('$apiBaseUrl/public/mobilebanner/$userId')
+          .timeout(Duration(seconds: 10));
+
+      if (response.statusCode == 200 && response.data["data"] != null) {
+        final List<dynamic> data = response.data["data"];
+        debugPrint('📊 Number of banners: ${data.length}');
+
+        // Cache the response with timestamp
+        final Map<String, dynamic> cacheObject = {
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'data': data,
+        };
+
+        await prefs.setString(BANNER_CACHE_KEY, jsonEncode(cacheObject));
+        debugPrint('✅ Banners fetched and cached');
+
+        final banners = data.map((json) => BannerModel.fromJson(json)).toList();
+        debugPrint('📊 Parsed banners: ${banners.length}');
+        return banners;
+      } else {
+        debugPrint('⚠️ Invalid response format for banners');
+        return [];
+      }
+    } catch (e) {
+      debugPrint("❌ Error fetching banners: $e");
+
+      // Try to get banners from cache regardless of age
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final String? cachedData = prefs.getString(BANNER_CACHE_KEY);
+        if (cachedData != null) {
+          final Map<String, dynamic> bannersCache = jsonDecode(cachedData);
+          final List<dynamic> cachedBanners = bannersCache['data'];
+          debugPrint('⚠️ Using expired cached banners due to error');
+          return cachedBanners
+              .map((json) => BannerModel.fromJson(json))
               .toList();
         }
       } catch (_) {
@@ -589,6 +666,7 @@ class ApiService {
       for (var key in keys) {
         if (key == ADMIN_CACHE_KEY ||
             key == CATEGORIES_CACHE_KEY ||
+            key == BANNER_CACHE_KEY ||
             key.startsWith(PRODUCTS_CACHE_PREFIX)) {
           await prefs.remove(key);
         }

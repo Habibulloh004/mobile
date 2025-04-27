@@ -444,9 +444,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 hintText: 'Комментарий к заказу (необязательно)',
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(
+                enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
+                  borderSide: BorderSide(
+                    color: ColorUtils.accentColor,
+                    // <-- accent color when not focused
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: ColorUtils.accentColor,
+                    // <-- accent color when focused
+                    width: 2,
+                  ),
                 ),
               ),
               maxLines: 3,

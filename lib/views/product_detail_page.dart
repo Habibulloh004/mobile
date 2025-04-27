@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/cart_provider.dart';
@@ -39,65 +40,26 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     ProductModel? product = productProvider.getProductById(widget.productId);
 
     if (product == null) {
-      debugPrint(
-        '⚠️ Product not found in initState, attempting to fetch it specifically',
-      );
       setState(() {
         _productLoading = true;
       });
 
       // Try to fetch this specific product
-      final fetchedProduct = await productProvider.fetchProductById(
-        widget.productId,
-      );
+      await productProvider.fetchProductById(widget.productId);
 
       setState(() {
         _productLoading = false;
       });
-
-      if (fetchedProduct == null) {
-        debugPrint('❌ Failed to fetch product with ID: ${widget.productId}');
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final productProvider = Provider.of<ProductProvider>(
-      context,
-      listen: false,
-    );
+    final productProvider = Provider.of<ProductProvider>(context);
     final cartProvider = Provider.of<CartProvider>(context);
 
     // Find the product in the products list
     ProductModel? product = productProvider.getProductById(widget.productId);
-
-    // Debug logs to help diagnose the issue
-    debugPrint(
-      '🔍 ProductDetailPage - Looking for product ID: ${widget.productId}',
-    );
-    debugPrint(
-      '🔍 Current products in provider: ${productProvider.products.length}',
-    );
-    if (product != null) {
-      debugPrint('✅ Product found: ${product.name}');
-    } else {
-      debugPrint('❌ Product not found with ID: ${widget.productId}');
-
-      // Try loading the product if not found - may need to implement a method to load a specific product
-      // This is a workaround if the product isn't in the current ProductProvider cache
-      debugPrint('🔄 Attempting to refresh products');
-      if (!_productLoading) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _productLoading = true;
-          productProvider.refreshProducts().then((_) {
-            setState(() {
-              _productLoading = false;
-            });
-          });
-        });
-      }
-    }
 
     if (_productLoading) {
       return Scaffold(
@@ -208,7 +170,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.search, color: ColorUtils.secondaryColor),
+            icon: SvgPicture.asset(
+              'assets/images/search.svg',
+              width: 24,
+              height: 24,
+              color: ColorUtils.secondaryColor,
+            ),
             onPressed: () {
               Navigator.push(
                 context,
@@ -220,9 +187,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             alignment: Alignment.center,
             children: [
               IconButton(
-                icon: Icon(
-                  Icons.shopping_cart,
+                icon: SvgPicture.asset(
+                  'assets/images/cart.svg',
                   color: ColorUtils.secondaryColor,
+                  width: 24,
+                  height: 24,
                 ),
                 onPressed: () {
                   Navigator.push(
@@ -263,16 +232,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             Container(
               width: double.infinity,
               height: 250,
-              child: Image.network(
-                product.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  debugPrint('❌ Error loading image: $error');
-                  return Image.asset(
-                    "assets/images/no_image.png",
-                    fit: BoxFit.cover,
-                  );
-                },
+              child: Hero(
+                tag: 'product_image_${product.id}',
+                child: Image.network(
+                  product.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Image.asset(
+                      "assets/images/no_image.png",
+                      fit: BoxFit.cover,
+                    );
+                  },
+                ),
               ),
             ),
 
@@ -337,9 +308,92 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ],
                     ),
 
-                  // Modifications (if available)
+                  // Group Modifications (if available)
+                  if (product.groupModifications != null &&
+                      product.groupModifications!.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Варианты:",
+                          style: TextStyle(
+                            fontSize: Constants.fontSizeMedium,
+                            fontWeight: FontWeight.bold,
+                            color: ColorUtils.secondaryColor,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          itemCount: product.groupModifications!.length,
+                          itemBuilder: (context, groupIndex) {
+                            final group =
+                                product.groupModifications![groupIndex];
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (group.name.isNotEmpty)
+                                  Padding(
+                                    padding: EdgeInsets.only(
+                                      top: 12,
+                                      bottom: 8,
+                                    ),
+                                    child: Text(
+                                      group.name,
+                                      style: TextStyle(
+                                        fontSize: Constants.fontSizeRegular,
+                                        fontWeight: FontWeight.bold,
+                                        color: ColorUtils.secondaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children:
+                                      group.modifications.map((mod) {
+                                        bool isSelected =
+                                            _selectedModification?.id == mod.id;
+                                        return ChoiceChip(
+                                          label: Text(mod.name),
+                                          selected: isSelected,
+                                          selectedColor: ColorUtils.accentColor
+                                              .withOpacity(0.2),
+                                          backgroundColor:
+                                              ColorUtils.primaryColor,
+                                          labelStyle: TextStyle(
+                                            color:
+                                                isSelected
+                                                    ? ColorUtils.accentColor
+                                                    : ColorUtils.secondaryColor,
+                                            fontWeight:
+                                                isSelected
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                          ),
+                                          onSelected: (selected) {
+                                            setState(() {
+                                              _selectedModification =
+                                                  selected ? mod : null;
+                                            });
+                                          },
+                                        );
+                                      }).toList(),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        SizedBox(height: 16),
+                      ],
+                    ),
+
+                  // Regular Modifications (if available)
                   if (product.modifications != null &&
-                      product.modifications!.isNotEmpty)
+                      product.modifications!.isNotEmpty &&
+                      (product.groupModifications == null ||
+                          product.groupModifications!.isEmpty))
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -354,6 +408,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
+                          runSpacing: 8,
                           children:
                               product.modifications!.map((mod) {
                                 bool isSelected =
@@ -455,10 +510,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
                                 // Add modification info if selected
                                 if (_selectedModification != null) {
+                                  cartItem['selectedModification'] =
+                                      _selectedModification;
                                   cartItem['modification'] = {
                                     'id': _selectedModification!.id,
                                     'name': _selectedModification!.name,
                                     'price': _selectedModification!.price,
+                                    'photoUrl': _selectedModification!.photoUrl,
                                   };
                                 }
 

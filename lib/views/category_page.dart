@@ -11,6 +11,12 @@ import 'cart_page.dart';
 import 'search_page.dart';
 
 class CategoryPage extends StatefulWidget {
+  // Add a parameter to track navigation source
+  final bool fromBottomNav;
+
+  // Constructor with optional parameter, defaulting to bottom navigation
+  const CategoryPage({Key? key, this.fromBottomNav = true}) : super(key: key);
+
   @override
   _CategoryPageState createState() => _CategoryPageState();
 }
@@ -112,17 +118,27 @@ class _CategoryPageState extends State<CategoryPage>
       appBar: AppBar(
         backgroundColor: ColorUtils.bodyColor,
         elevation: 0,
-        leading: IconButton(
-          icon: SvgPicture.asset(
-            'assets/images/hambur.svg',
-            color: ColorUtils.secondaryColor, // Optional colorization
-            width: 24,
-            height: 24,
-          ),
-          onPressed: () {
-            Scaffold.of(context).openDrawer();
-          },
-        ),
+        // Conditionally render either back arrow or hamburger menu based on navigation source
+        leading:
+            widget.fromBottomNav
+                ? IconButton(
+                  icon: SvgPicture.asset(
+                    'assets/images/hambur.svg',
+                    color: ColorUtils.secondaryColor,
+                    width: 24,
+                    height: 24,
+                  ),
+                  onPressed: () {
+                    Scaffold.of(context).openDrawer();
+                  },
+                )
+                : IconButton(
+                  icon: Icon(
+                    Icons.arrow_back,
+                    color: ColorUtils.secondaryColor,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
         title: Text(
           "Категории",
           style: TextStyle(
@@ -140,7 +156,7 @@ class _CategoryPageState extends State<CategoryPage>
                   IconButton(
                     icon: SvgPicture.asset(
                       'assets/images/cart.svg',
-                      color: ColorUtils.secondaryColor, // Optional colorization
+                      color: ColorUtils.secondaryColor,
                       width: 24,
                       height: 24,
                     ),
@@ -351,10 +367,6 @@ class _CategoryPageState extends State<CategoryPage>
         ),
       );
     }
-
-    // In lib/views/category_page.dart
-    // Find the GridView.builder in the _buildCategoriesGrid method
-    // and update the crossAxisCount from 2 to 3
 
     return RefreshIndicator(
       onRefresh: _loadCategories,

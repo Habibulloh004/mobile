@@ -326,40 +326,6 @@ class OrderDetailsPage extends StatelessWidget {
 
               SizedBox(height: 24),
 
-              // Re-order button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Implement re-order functionality
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Функция повторного заказа скоро будет доступна',
-                        ),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ColorUtils.buttonColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    'Повторить заказ',
-                    style: TextStyle(
-                      fontSize: Constants.fontSizeMedium,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 16),
-
               // Return button
               SizedBox(
                 width: double.infinity,

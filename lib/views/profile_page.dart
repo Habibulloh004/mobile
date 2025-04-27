@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:poster_app/helpers/index.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../utils/color_utils.dart';
@@ -256,50 +257,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                     ),
                                     SizedBox(height: 8),
                                     Text(
-                                      "$_bonus",
-                                      style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: ColorUtils.accentColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            SizedBox(width: 16),
-
-                            // Discount card
-                            Expanded(
-                              child: Container(
-                                padding: EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: ColorUtils.primaryColor,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.discount,
-                                          color: ColorUtils.accentColor,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          "Скидка",
-                                          style: TextStyle(
-                                            fontSize: Constants.fontSizeSmall,
-                                            fontWeight: FontWeight.bold,
-                                            color: ColorUtils.secondaryColor,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      "$_discount%",
+                                      formatPrice(_bonus),
+                                      // formatPrice(10000),
                                       style: TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold,
@@ -331,21 +290,6 @@ class _ProfilePageState extends State<ProfilePage> {
                           child: Column(
                             children: [
                               _buildMenuItem(
-                                icon: Icons.person_outline,
-                                title: "Личные данные",
-                                onTap: () {
-                                  // TODO: Implement edit profile functionality
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        "Редактирование профиля скоро будет доступно",
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              Divider(height: 1),
-                              _buildMenuItem(
                                 icon: Icons.history,
                                 title: "История заказов",
                                 onTap: () {
@@ -356,30 +300,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     ),
                                   );
                                 },
-                              ),
-                              Divider(height: 1),
-                              _buildMenuItem(
-                                icon: Icons.location_on_outlined,
-                                title: "Адреса доставки (${_addresses.length})",
-                                onTap: () {
-                                  _showAddressesList();
-                                },
-                              ),
-                              Divider(height: 1),
-                              _buildMenuItem(
-                                icon: Icons.card_giftcard,
-                                title: "Бонусная программа",
-                                onTap: () {
-                                  // TODO: Implement bonus program functionality
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        "Информация о бонусной программе скоро будет доступна",
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                              )
                             ],
                           ),
                         ),

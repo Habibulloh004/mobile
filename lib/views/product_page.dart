@@ -106,7 +106,7 @@ class _ProductPageState extends State<ProductPage>
                   IconButton(
                     icon: SvgPicture.asset(
                       'assets/images/cart.svg',
-                      color: ColorUtils.secondaryColor, // Optional colorization
+                      color: ColorUtils.secondaryColor,
                       width: 24,
                       height: 24,
                     ),
@@ -306,10 +306,7 @@ class _ProductPageState extends State<ProductPage>
                     itemCount: products.length,
                     itemBuilder: (context, index) {
                       final product = products[index];
-                      final cartProvider = Provider.of<CartProvider>(
-                        context,
-                        listen: false,
-                      );
+                      final cartProvider = Provider.of<CartProvider>(context);
 
                       // Check if this product is in the cart
                       final cartItem = cartProvider.cartItems.firstWhere(
@@ -363,37 +360,6 @@ class _ProductPageState extends State<ProductPage>
                                         ),
                                       ),
                                     ),
-                                    // if (!product.isAvailable)
-                                    //   Container(
-                                    //     decoration: BoxDecoration(
-                                    //       color: Colors.black.withOpacity(0.5),
-                                    //       borderRadius: BorderRadius.vertical(
-                                    //         top: Radius.circular(12),
-                                    //       ),
-                                    //     ),
-                                    //     child: Center(
-                                    //       child: Container(
-                                    //         padding: EdgeInsets.symmetric(
-                                    //           horizontal: 12,
-                                    //           vertical: 6,
-                                    //         ),
-                                    //         decoration: BoxDecoration(
-                                    //           color: Colors.red,
-                                    //           borderRadius:
-                                    //               BorderRadius.circular(6),
-                                    //         ),
-                                    //         child: Text(
-                                    //           "Нет в наличии",
-                                    //           style: TextStyle(
-                                    //             color: Colors.white,
-                                    //             fontWeight: FontWeight.bold,
-                                    //             fontSize:
-                                    //                 Constants.fontSizeSmall,
-                                    //           ),
-                                    //         ),
-                                    //       ),
-                                    //     ),
-                                    //   ),
                                   ],
                                 ),
                               ),

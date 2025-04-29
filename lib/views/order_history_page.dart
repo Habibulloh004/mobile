@@ -266,7 +266,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                       ),
                       Spacer(),
                       Text(
-                        formatPrice(order.total.toDouble()),
+                        formatPrice(order.total),
                         style: TextStyle(
                           fontSize: Constants.fontSizeMedium,
                           fontWeight: FontWeight.bold,

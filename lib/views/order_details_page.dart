@@ -211,7 +211,7 @@ class OrderDetailsPage extends StatelessWidget {
                                   ),
                                   SizedBox(height: 4),
                                   Text(
-                                    formatPrice(item.price.toDouble()),
+                                    formatPrice(item.price),
                                     style: TextStyle(
                                       fontSize: Constants.fontSizeSmall,
                                       color: Colors.grey[600],

@@ -10,7 +10,7 @@ class CartProvider with ChangeNotifier {
 
   // Optional delivery info
   bool _isDelivery = true; // true = delivery, false = pickup
-  double _deliveryFee = 10000; // 10,000 sum
+  int _deliveryFee = 10000; // 10,000 sum
 
   CartProvider() {
     _loadCartFromCache();
@@ -20,8 +20,7 @@ class CartProvider with ChangeNotifier {
   List<Map<String, dynamic>> get cartItems => _cartItems;
 
   bool get isDelivery => _isDelivery;
-
-  double get deliveryFee => _isDelivery ? _deliveryFee : 0;
+  int get deliveryFee => _isDelivery ? _deliveryFee : 0;
 
   // Set delivery method
   void setDeliveryMethod(bool isDelivery) {
@@ -67,14 +66,9 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  // Find an item in the cart by product ID and modification ID
+  // Find an item in the cart by product ID and modification data
+  // Updated _findCartItemIndex method to better compare modifications
   int _findCartItemIndex(Map<String, dynamic> product) {
-    // Extract the modification ID if present
-    final String? modificationId =
-        product.containsKey('modification') && product['modification'] != null
-            ? product['modification']['id']?.toString()
-            : null;
-
     for (int i = 0; i < _cartItems.length; i++) {
       final item = _cartItems[i];
 
@@ -83,21 +77,61 @@ class CartProvider with ChangeNotifier {
         continue;
       }
 
-      // Check modification match
-      final bool itemHasModification =
-          item.containsKey('modification') && item['modification'] != null;
-      final String? itemModificationId =
-          itemHasModification ? item['modification']['id']?.toString() : null;
+      // Case 1: Group modifications as JSON string
+      if (product.containsKey('modification') &&
+          product['modification'] is String &&
+          item.containsKey('modification') &&
+          item['modification'] is String) {
+        // Compare the actual modification content
+        try {
+          List<dynamic> productMods = jsonDecode(product['modification']);
+          List<dynamic> itemMods = jsonDecode(item['modification']);
 
-      // Both have the same modification status (either both have modifications or neither does)
-      if ((modificationId == null && itemModificationId == null) ||
-          (modificationId != null && itemModificationId == modificationId)) {
+          // Sort both lists to ensure consistent comparison
+          productMods.sort(
+            (a, b) => a['m'].toString().compareTo(b['m'].toString()),
+          );
+          itemMods.sort(
+            (a, b) => a['m'].toString().compareTo(b['m'].toString()),
+          );
+
+          // If the modifications are different, this is a different item
+          if (jsonEncode(productMods) != jsonEncode(itemMods)) {
+            continue;
+          }
+
+          return i;
+        } catch (e) {
+          debugPrint("Error comparing modifications: $e");
+          continue;
+        }
+      }
+
+      // Case 2: Regular modification object
+      if (product.containsKey('modification') &&
+          product['modification'] is Map &&
+          item.containsKey('modification') &&
+          item['modification'] is Map) {
+        final itemModId = item['modification']['id']?.toString();
+        final productModId = product['modification']['id']?.toString();
+
+        if (itemModId == productModId) {
+          return i;
+        }
+      }
+
+      // Case 3: Neither has modifications
+      if ((!product.containsKey('modification') ||
+              product['modification'] == null) &&
+          (!item.containsKey('modification') || item['modification'] == null)) {
         return i;
       }
     }
 
     return -1; // Item not found
   }
+
+  // In cart_provider.dart, update the addItem method to ensure prices are correctly handled
 
   void addItem(Map<String, dynamic> product) {
     debugPrint("📌 Adding item to cart: ${product['name']}");
@@ -126,7 +160,32 @@ class CartProvider with ChangeNotifier {
               ? product['quantity']
               : 1;
 
-      _cartItems.add({...product, 'quantity': quantity});
+      // Make a deep copy to ensure we don't modify the original product
+      Map<String, dynamic> newItem = {...product, 'quantity': quantity};
+
+      // Preserve modification details for display in cart
+      if (product.containsKey('modification_details')) {
+        newItem['modification_details'] = product['modification_details'];
+      }
+
+      // IMPORTANT: Make sure the prices are correctly formatted
+      // Base product price is already divided by 100
+
+      // If this product has group modifications (String format),
+      // make sure their price is NOT divided by 100
+      if (product.containsKey('modification') &&
+          product['modification'] is String &&
+          product['modification'].toString().isNotEmpty) {
+        // Group modifications - price is already correct
+      }
+      // If this product has regular modification (Map format),
+      // make sure its price is divided by 100
+      else if (product.containsKey('modification') &&
+          product['modification'] is Map) {
+        // Regular modification - price is already divided during creation
+      }
+
+      _cartItems.add(newItem);
       debugPrint(
         "✅ New item added to cart: ${product['name']} (Qty: $quantity)",
       );
@@ -150,48 +209,90 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  void updateQuantity(int productId, int change, {String? modificationId}) {
-    // Create a dummy product to use _findCartItemIndex
-    final Map<String, dynamic> dummyProduct = {'product_id': productId};
+  void updateQuantity(
+    int productId,
+    int change, {
+    String? modificationId,
+    String? groupModifications,
+  }) {
+    try {
+      // Create a dummy product to use _findCartItemIndex
+      final Map<String, dynamic> dummyProduct = {'product_id': productId};
 
-    // Add modification if provided
-    if (modificationId != null) {
-      dummyProduct['modification'] = {'id': modificationId};
-    }
-
-    final index = _findCartItemIndex(dummyProduct);
-
-    if (index >= 0) {
-      // Update the quantity
-      _cartItems[index]['quantity'] += change;
-
-      // Ensure quantity never goes below 1
-      if (_cartItems[index]['quantity'] <= 0) {
-        // Remove item from cart
-        _cartItems.removeAt(index);
-        debugPrint("🗑️ Item removed from cart due to zero quantity");
-      } else {
-        debugPrint("🔄 Updated quantity to ${_cartItems[index]['quantity']}");
+      // Add modification if provided
+      if (modificationId != null) {
+        dummyProduct['modification'] = {'id': modificationId};
+      } else if (groupModifications != null) {
+        dummyProduct['modification'] = groupModifications;
       }
 
-      notifyListeners();
-      _saveCartToCache();
-    } else {
-      debugPrint("⚠️ Failed to find item in cart for updating quantity");
+      final index = _findCartItemIndex(dummyProduct);
+
+      if (index >= 0) {
+        // Update the quantity
+        _cartItems[index]['quantity'] += change;
+
+        // Ensure quantity never goes below 1
+        if (_cartItems[index]['quantity'] <= 0) {
+          // Remove item from cart
+          _cartItems.removeAt(index);
+          debugPrint("🗑️ Item removed from cart due to zero quantity");
+        } else {
+          debugPrint("🔄 Updated quantity to ${_cartItems[index]['quantity']}");
+        }
+
+        notifyListeners();
+        _saveCartToCache();
+      } else {
+        debugPrint("⚠️ Failed to find item in cart for updating quantity");
+      }
+    } catch (e) {
+      debugPrint("❌ Error updating cart item quantity: $e");
     }
   }
 
   // Get total price of items in cart
-  double get subtotal {
-    double total = 0.0;
+  // Replace the subtotal getter in CartProvider:
+  int get subtotal {
+    int total = 0;
     for (var item in _cartItems) {
-      total += (item['price'] as int) * (item['quantity'] as int);
+      // Safely handle price and quantity types
+      int price = 0;
+      int quantity = 1;
+
+      // Convert price to int if needed - handle both int and double
+      if (item['price'] is int) {
+        price = item['price'] as int;
+      } else if (item['price'] is double) {
+        price = (item['price'] as double).toInt();
+      } else if (item['price'] != null) {
+        try {
+          price = int.parse(item['price'].toString());
+        } catch (e) {
+          debugPrint('❌ Error parsing price: $e');
+        }
+      }
+
+      // Convert quantity to int if needed
+      if (item['quantity'] is int) {
+        quantity = item['quantity'] as int;
+      } else if (item['quantity'] is double) {
+        quantity = (item['quantity'] as double).toInt();
+      } else if (item['quantity'] != null) {
+        try {
+          quantity = int.parse(item['quantity'].toString());
+        } catch (e) {
+          debugPrint('❌ Error parsing quantity: $e');
+        }
+      }
+
+      total += price * quantity;
     }
     return total;
   }
 
-  // Get total price including delivery
-  double get total {
+  // Get total price including delivery (as int)
+  int get total {
     return subtotal + (_isDelivery ? _deliveryFee : 0);
   }
 
@@ -207,7 +308,21 @@ class CartProvider with ChangeNotifier {
 
   // Get total number of items in cart
   int get itemCount {
-    return _cartItems.fold(0, (sum, item) => sum + (item['quantity'] as int));
+    return _cartItems.fold(0, (sum, item) {
+      int quantity = 1;
+      if (item['quantity'] is int) {
+        quantity = item['quantity'] as int;
+      } else if (item['quantity'] is double) {
+        quantity = (item['quantity'] as double).toInt();
+      } else if (item['quantity'] != null) {
+        try {
+          quantity = int.parse(item['quantity'].toString());
+        } catch (e) {
+          debugPrint('❌ Error parsing quantity for itemCount: $e');
+        }
+      }
+      return sum + quantity;
+    });
   }
 
   // Add a product model directly to cart

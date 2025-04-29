@@ -9,6 +9,7 @@ import '../helpers/index.dart';
 import '../models/product_model.dart';
 import 'search_page.dart';
 import 'cart_page.dart';
+import 'dart:convert';
 
 class ProductDetailPage extends StatefulWidget {
   final int productId;
@@ -23,6 +24,12 @@ class ProductDetailPage extends StatefulWidget {
 class _ProductDetailPageState extends State<ProductDetailPage> {
   int _quantity = 1;
   bool _productLoading = false;
+
+  // Map to track selected modifications in group modifications
+  Map<String, bool> _selectedGroupModifications = {};
+
+  // Map to store modification details for retrieval later
+  Map<String, ProductModification> _modificationDetailsMap = {};
 
   @override
   void initState() {
@@ -49,7 +56,71 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       setState(() {
         _productLoading = false;
       });
+    } else {
+      // Initialize modification maps
+      _initializeSelectedModifications(product);
     }
+  }
+
+  // Initialize selected modifications from group modifications
+  void _initializeSelectedModifications(ProductModel product) {
+    if (product.groupModifications != null &&
+        product.groupModifications!.isNotEmpty) {
+      for (var group in product.groupModifications!) {
+        for (var mod in group.modifications) {
+          // Initialize all to false (unselected)
+          _selectedGroupModifications[mod.id] = false;
+
+          // Store modification details for later use
+          _modificationDetailsMap[mod.id] = mod;
+        }
+      }
+    }
+  }
+
+  // Generate JSON format for selected group modifications
+  String getSelectedModificationsJson() {
+    List<Map<String, dynamic>> result = [];
+
+    _selectedGroupModifications.forEach((id, isSelected) {
+      if (isSelected) {
+        // Try to parse ID to int if possible
+        int? modId;
+        try {
+          modId = int.parse(id);
+        } catch (e) {
+          // If parsing fails, use the ID as is
+          modId = int.tryParse(id);
+        }
+
+        result.add({"m": modId ?? id, "a": 1});
+      }
+    });
+
+    return jsonEncode(result);
+  }
+
+// In product_detail_page.dart, update the calculateTotalPrice method:
+
+// Calculate total price including all selected modifications
+  int calculateTotalPrice(ProductModel product) {
+    // Base price is already divided by 100 during product loading
+    int totalPrice = product.price;
+
+    // Add price for regular modifications (already divided by 100 during loading)
+    if (product.selectedModification != null) {
+      totalPrice += product.selectedModification!.price;
+    }
+
+    // Add prices for group modifications (should NOT be divided)
+    _selectedGroupModifications.forEach((id, isSelected) {
+      if (isSelected && _modificationDetailsMap.containsKey(id)) {
+        // Group modification prices are already in correct format
+        totalPrice += _modificationDetailsMap[id]!.price;
+      }
+    });
+
+    return totalPrice;
   }
 
   @override
@@ -135,34 +206,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       );
     }
 
-    // Check if this product+modification combination is in the cart
-    final cartItems =
-        cartProvider.cartItems.where((item) {
-          if (item['product_id'] != product.id) return false;
-
-          // Check if both have matching modifications
-          final bool itemHasModification =
-              item.containsKey('modification') && item['modification'] != null;
-          final String? itemModificationId =
-              itemHasModification
-                  ? item['modification']['id']?.toString()
-                  : null;
-
-          final bool productHasModification =
-              product.selectedModification != null;
-          final String? productModificationId =
-              productHasModification ? product.selectedModification!.id : null;
-
-          return itemModificationId == productModificationId;
-        }).toList();
-
-    final int cartQuantity =
-        cartItems.isNotEmpty ? cartItems.first['quantity'] : 0;
-
-    // Update the quantity if the product is already in the cart
-    if (cartQuantity > 0 && _quantity == 1) {
-      _quantity = cartQuantity;
+    // Initialize modification maps if not already done
+    if (_modificationDetailsMap.isEmpty &&
+        product.groupModifications != null &&
+        product.groupModifications!.isNotEmpty) {
+      _initializeSelectedModifications(product);
     }
+
+    // Calculate the total price including all selected modifications
+    final totalPrice = calculateTotalPrice(product);
 
     return Scaffold(
       backgroundColor: ColorUtils.bodyColor,
@@ -285,7 +337,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                       SizedBox(width: 16),
                       Text(
-                        formatPrice(product.effectivePrice),
+                        formatPrice(totalPrice, subtract: false),
                         style: TextStyle(
                           fontSize: Constants.fontSizeLarge,
                           fontWeight: FontWeight.bold,
@@ -294,48 +346,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                     ],
                   ),
-
-                  // Current selected modification
-                  if (product.selectedModification != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: ColorUtils.primaryColor,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: ColorUtils.accentColor.withOpacity(0.3),
-                              ),
-                            ),
-                            child: Text(
-                              product.selectedModification!.name,
-                              style: TextStyle(
-                                color: ColorUtils.accentColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: Constants.fontSizeSmall,
-                              ),
-                            ),
-                          ),
-                          if (product.selectedModification!.price > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8.0),
-                              child: Text(
-                                "(+${formatPrice(product.selectedModification!.price)})",
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: Constants.fontSizeSmall,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
 
                   SizedBox(height: 16),
 
@@ -365,14 +375,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ],
                     ),
 
-                  // Group Modifications (if available)
+                  // Group Modifications (if available) - WITH CHECKBOXES ONLY
                   if (product.groupModifications != null &&
                       product.groupModifications!.isNotEmpty)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Варианты:",
+                          "Добавки:",
                           style: TextStyle(
                             fontSize: Constants.fontSizeMedium,
                             fontWeight: FontWeight.bold,
@@ -396,25 +406,38 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                       top: 12,
                                       bottom: 8,
                                     ),
-                                    child: Text(
-                                      group.name,
-                                      style: TextStyle(
-                                        fontSize: Constants.fontSizeRegular,
-                                        fontWeight: FontWeight.bold,
-                                        color: ColorUtils.secondaryColor,
-                                      ),
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          group.name,
+                                          style: TextStyle(
+                                            fontSize: Constants.fontSizeRegular,
+                                            fontWeight: FontWeight.bold,
+                                            color: ColorUtils.secondaryColor,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
+                                // Always use checkbox style (even for type 1)
                                 Column(
                                   children:
                                       group.modifications.map((mod) {
                                         bool isSelected =
-                                            product.selectedModification?.id ==
-                                            mod.id;
-                                        return _buildModificationTile(
-                                          product,
+                                            _selectedGroupModifications[mod
+                                                .id] ??
+                                            false;
+
+                                        return _buildCheckboxModificationTile(
                                           mod,
                                           isSelected,
+                                          (selected) {
+                                            setState(() {
+                                              _selectedGroupModifications[mod
+                                                      .id] =
+                                                  selected;
+                                            });
+                                          },
                                         );
                                       }).toList(),
                                 ),
@@ -426,7 +449,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ],
                     ),
 
-                  // Regular Modifications (if available)
+                  // Regular Modifications (if available) - KEEP THE ORIGINAL RADIO BUTTONS
                   if (product.modifications != null &&
                       product.modifications!.isNotEmpty &&
                       (product.groupModifications == null ||
@@ -520,30 +543,95 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
-                                // Ensure a product has a selected modification if modifications are available
-                                if ((product.modifications != null &&
-                                        product.modifications!.isNotEmpty) ||
-                                    (product.groupModifications != null &&
-                                        product
-                                            .groupModifications!
-                                            .isNotEmpty)) {
-                                  if (product.selectedModification == null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          "Пожалуйста, выберите вариант",
-                                        ),
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
-                                    return;
-                                  }
+                                // Check for regular modifications - these are still required
+                                bool hasRequiredSelections = true;
+                                String errorMessage = "";
+
+                                // Check for regular modifications
+                                bool hasRegularModifications =
+                                    (product.modifications != null &&
+                                        product.modifications!.isNotEmpty);
+
+                                if (hasRegularModifications &&
+                                    product.selectedModification == null) {
+                                  hasRequiredSelections = false;
+                                  errorMessage = "Пожалуйста, выберите вариант";
+                                }
+
+                                if (!hasRequiredSelections) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(errorMessage),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                  return;
                                 }
 
                                 // Prepare cart item data
-                                Map<String, dynamic> cartItem =
-                                    product.toCartItem();
-                                cartItem['quantity'] = _quantity;
+                                Map<String, dynamic> cartItem = {};
+
+                                // Create selected modifications data with names for display
+                                List<Map<String, dynamic>>
+                                selectedModsWithNames = [];
+                                _selectedGroupModifications.forEach((
+                                  id,
+                                  isSelected,
+                                ) {
+                                  if (isSelected &&
+                                      _modificationDetailsMap.containsKey(id)) {
+                                    int? modId;
+                                    try {
+                                      modId = int.parse(id);
+                                    } catch (e) {
+                                      modId = null;
+                                    }
+
+                                    selectedModsWithNames.add({
+                                      "m": modId ?? id,
+                                      "a": 1,
+                                      "name": _modificationDetailsMap[id]!.name,
+                                      "price":
+                                          _modificationDetailsMap[id]!.price,
+                                    });
+                                  }
+                                });
+
+                                // Handle different scenarios
+                                if (product.groupModifications != null &&
+                                    product.groupModifications!.isNotEmpty) {
+                                  // Get modifications in required format for API
+                                  String modificationsJson =
+                                      getSelectedModificationsJson();
+
+                                  // Create cart item with group modifications
+                                  cartItem = {
+                                    'product_id': product.id,
+                                    'name': product.name,
+                                    'price': totalPrice,
+                                    // This is already calculated correctly without division
+                                    'base_price': product.price,
+                                    'imageUrl': product.imageUrl,
+                                    'quantity': _quantity,
+                                    'modification': modificationsJson,
+                                    'modification_details':
+                                        selectedModsWithNames,
+                                  };
+                                } else if (hasRegularModifications &&
+                                    product.selectedModification != null) {
+                                  // Regular modification - use the existing structure
+                                  cartItem = product.toCartItem();
+                                  cartItem['quantity'] = _quantity;
+                                } else {
+                                  // Simple product without modifications
+                                  cartItem = {
+                                    'product_id': product.id,
+                                    'name': product.name,
+                                    'price': product.price,
+                                    'imageUrl': product.imageUrl,
+                                    'quantity': _quantity,
+                                  };
+                                }
 
                                 // Add to cart
                                 cartProvider.addItem(cartItem);
@@ -589,7 +677,94 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
-  // Create a custom tile for showing modification options
+  // For group modifications with checkbox style (used for all types now)
+  Widget _buildCheckboxModificationTile(
+    ProductModification mod,
+    bool isSelected,
+    Function(bool) onChanged,
+  ) {
+    return InkWell(
+      onTap: () {
+        onChanged(!isSelected);
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        margin: EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color:
+              isSelected
+                  ? ColorUtils.accentColor.withOpacity(0.1)
+                  : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color:
+                isSelected
+                    ? ColorUtils.accentColor
+                    : Colors.grey.withOpacity(0.3),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Checkbox
+            Checkbox(
+              value: isSelected,
+              onChanged: (value) => onChanged(value ?? false),
+              activeColor: ColorUtils.accentColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+
+            // Modification image if available
+            if (mod.photoUrl != null && mod.photoUrl!.isNotEmpty)
+              Container(
+                width: 40,
+                height: 40,
+                margin: EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  image: DecorationImage(
+                    image: NetworkImage(
+                      "https://joinposter.com" + mod.photoUrl!,
+                    ),
+                    fit: BoxFit.cover,
+                    onError: (exception, stackTrace) {
+                      // Fallback if image loading fails
+                    },
+                  ),
+                ),
+              ),
+
+            // Modification name
+            Expanded(
+              child: Text(
+                mod.name,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: ColorUtils.secondaryColor,
+                  fontSize: Constants.fontSizeRegular,
+                ),
+              ),
+            ),
+
+            // Price
+            if (mod.price > 0)
+              Text(
+                "+${formatPrice(mod.price, subtract: false)}",
+                style: TextStyle(
+                  color: isSelected ? ColorUtils.accentColor : Colors.grey[600],
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: Constants.fontSizeRegular,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Keep the original tile for regular modifications (radio button style)
   Widget _buildModificationTile(
     ProductModel product,
     ProductModification mod,

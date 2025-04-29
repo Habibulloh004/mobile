@@ -1,13 +1,13 @@
-// In product_model.dart, updated to handle default modification selection
+// lib/models/product_model.dart
 
 import 'package:poster_app/helpers/index.dart';
 
 class GroupModification {
   final int id;
   final String name;
-  final int minQuantity;
+  final int minQuantity; // Will be set to 0 to make selection optional
   final int maxQuantity;
-  final int type;
+  final int type; // Will always be treated as type 2 (checkbox) in the UI
   final List<ProductModification> modifications;
 
   GroupModification({
@@ -28,6 +28,9 @@ class GroupModification {
               .toList();
     }
 
+    // Note: We're keeping the original values from JSON, but in the UI
+    // we'll ignore minQuantity to make selection optional and
+    // treat all types as checkbox (type 2)
     return GroupModification(
       id:
           int.tryParse(json['dish_modification_group_id']?.toString() ?? '0') ??
@@ -54,24 +57,46 @@ class ProductModification {
     this.photoUrl,
   });
 
+  // In product_model.dart, update the ProductModification.fromJson method:
+
   factory ProductModification.fromJson(Map<String, dynamic> json) {
+    // Determine if this is a group modification (from group_modifications)
+    // or a regular modification (from modifications)
+    bool isGroupModification = json.containsKey('dish_modification_id');
+
     // Check if using the old or new format
     if (json.containsKey('modificator_id')) {
-      // Old format
+      // Old format - these are regular modifications (should be divided by 100)
       return ProductModification(
         id: json['modificator_id']?.toString() ?? '',
         name: json['modificator_name']?.toString() ?? '',
-        price:
-            int.tryParse(json['modificator_selfprice']?.toString() ?? '0') ?? 0,
+        price: extractModificationPrice(
+          json['modificator_selfprice'],
+          false, // Not a group modification, divide by 100
+        ),
         photoUrl: null,
       );
     } else {
-      // New format from group_modifications
+      // New format from group_modifications - these are NOT divided by 100
+      String? photoUrl;
+
+      // Handle both photo_large and photo_small fields
+      if (json['photo_large'] != null &&
+          json['photo_large'].toString().isNotEmpty) {
+        photoUrl = json['photo_large'];
+      } else if (json['photo_small'] != null &&
+          json['photo_small'].toString().isNotEmpty) {
+        photoUrl = json['photo_small'];
+      }
+
       return ProductModification(
         id: json['dish_modification_id']?.toString() ?? '',
         name: json['name']?.toString() ?? '',
-        price: int.tryParse(json['price']?.toString() ?? '0') ?? 0,
-        photoUrl: json['photo_large'],
+        price: extractModificationPrice(
+          json['price'],
+          true, // This is a group modification, do NOT divide by 100
+        ),
+        photoUrl: photoUrl,
       );
     }
   }
@@ -90,12 +115,22 @@ class ProductModel {
   final bool isAvailable;
   ProductModification? selectedModification;
 
+  // Map to track selected group modifications
+  Map<String, bool> selectedGroupModifications = {};
+
   // Effective price that accounts for selected modification
   int get effectivePrice {
+    int totalPrice =
+        price; // Base price is already divided by 100 at this point
+
+    // Add price of selected regular modification - needs division by 100
     if (selectedModification != null) {
-      return price + selectedModification!.price;
+      // Check if we need to divide the modification price
+      // For regular modifications, divide by 100
+      totalPrice += selectedModification!.price;
     }
-    return price;
+
+    return totalPrice;
   }
 
   ProductModel({
@@ -109,7 +144,16 @@ class ProductModel {
     this.groupModifications,
     this.isAvailable = true,
     this.selectedModification,
-  });
+  }) {
+    // Initialize selected group modifications map
+    if (groupModifications != null) {
+      for (var group in groupModifications!) {
+        for (var mod in group.modifications) {
+          selectedGroupModifications[mod.id] = false;
+        }
+      }
+    }
+  }
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     // Clean product name (remove anything after $ if present)
@@ -159,15 +203,8 @@ class ProductModel {
       isAvailable: isAvailable,
     );
 
-    // Pre-select the first modification if available
-    if (product.groupModifications != null &&
-        product.groupModifications!.isNotEmpty) {
-      final firstGroup = product.groupModifications!.first;
-      if (firstGroup.modifications.isNotEmpty) {
-        product.selectedModification = firstGroup.modifications.first;
-      }
-    } else if (product.modifications != null &&
-        product.modifications!.isNotEmpty) {
+    // Pre-select the first modification for regular modifications only
+    if (product.modifications != null && product.modifications!.isNotEmpty) {
       product.selectedModification = product.modifications!.first;
     }
 

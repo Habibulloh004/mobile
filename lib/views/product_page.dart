@@ -314,26 +314,43 @@ class _ProductPageState extends State<ProductPage>
                           product.selectedModification?.id;
 
                       // Look for this product with this modification in the cart
-                      final cartItems =
-                          cartProvider.cartItems.where((item) {
-                            if (item['product_id'] != product.id) return false;
+                      int quantity = 0;
 
-                            // Check modification match
-                            final bool itemHasModification =
-                                item.containsKey('modification') &&
-                                item['modification'] != null;
-                            final String? itemModificationId =
-                                itemHasModification
-                                    ? item['modification']['id']?.toString()
-                                    : null;
+                      // Fixed: Safely check for modification in cartItems
+                      for (var item in cartProvider.cartItems) {
+                        if (item['product_id'] != product.id) continue;
 
-                            return modificationId == itemModificationId;
-                          }).toList();
+                        // Check if modification matches
+                        if (item.containsKey('modification')) {
+                          if (item['modification'] is Map &&
+                              modificationId != null) {
+                            // Handle regular modifications
+                            if (item['modification']['id']?.toString() ==
+                                modificationId) {
+                              quantity = item['quantity'] ?? 0;
+                              break;
+                            }
+                          } else if (item['modification'] is String) {
+                            // Handle group modifications - always go to detail page
+                            // We won't show quantity directly in the product list for group mods
+                            break;
+                          }
+                        } else if (modificationId == null) {
+                          // Product without modification
+                          quantity = item['quantity'] ?? 0;
+                          break;
+                        }
+                      }
 
-                      final int quantity =
-                          cartItems.isNotEmpty
-                              ? cartItems.first['quantity'] ?? 0
-                              : 0;
+                      // For products with group modifications, we always want to go to detail page
+                      bool hasGroupModifications =
+                          product.groupModifications != null &&
+                          product.groupModifications!.isNotEmpty;
+
+                      // If product has group modifications, don't show quantity controls in grid
+                      if (hasGroupModifications) {
+                        quantity = 0;
+                      }
 
                       return GestureDetector(
                         onTap: () {
@@ -401,6 +418,33 @@ class _ProductPageState extends State<ProductPage>
                                             product.selectedModification!.name,
                                             style: TextStyle(
                                               color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    // Show group modifications tag
+                                    if (hasGroupModifications)
+                                      Positioned(
+                                        top: 8,
+                                        right: 8,
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: ColorUtils.primaryColor
+                                                .withOpacity(0.9),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            "Дополнения",
+                                            style: TextStyle(
+                                              color: ColorUtils.secondaryColor,
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
                                             ),

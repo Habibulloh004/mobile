@@ -11,55 +11,108 @@ String cleanProductName(String name) {
   return name;
 }
 
-// Format price from API (in cents/minor units) to readable format
-String formatPrice(num price, {String type = 'space', bool showCurrency = true}) {
-  // Step 1: Divide the price by 100 for better display
-  double formattedPrice = price / 100;
+// Add or update these helper functions in your helpers/index.dart file
 
-  // Step 2: Format the number with 0 decimal places if it's a whole number, otherwise 2 decimal places
-  String priceString = formattedPrice % 1 == 0
-      ? formattedPrice.toInt().toString()
-      : formattedPrice.toStringAsFixed(2);
+// Function to extract and properly format product price
+int extractPrice(dynamic rawPrice) {
+  // If price is null or empty, return 0
+  if (rawPrice == null || rawPrice.toString().isEmpty) {
+    return 0;
+  }
 
-  // Step 3: Split into integer and decimal parts
-  List<String> parts = priceString.split('.');
-  String integerPart = parts[0];
-  String decimalPart = parts.length > 1 ? parts[1] : "";
-
-  // Step 4: Add thousand separators to the integer part
-  String separator = type == 'space' ? ' ' : ',';
-  String formattedInteger = '';
-  for (int i = 0; i < integerPart.length; i++) {
-    if (i > 0 && (integerPart.length - i) % 3 == 0) {
-      formattedInteger += separator;
+  // Try to parse the price to a number
+  int parsedPrice;
+  try {
+    // Handle various formats - strings, doubles, etc.
+    if (rawPrice is int) {
+      parsedPrice = rawPrice;
+    } else if (rawPrice is double) {
+      parsedPrice = rawPrice.toInt();
+    } else {
+      // Try to parse string to number
+      parsedPrice =
+          int.tryParse(rawPrice.toString().replaceAll(RegExp(r'[^0-9]'), '')) ??
+          0;
     }
-    formattedInteger += integerPart[i];
+  } catch (e) {
+    print('Error parsing price: $e');
+    parsedPrice = 0;
   }
 
-  // Step 5: Combine the formatted integer part, decimal part, and currency
-  if (decimalPart.isNotEmpty) {
-    return showCurrency
-        ? '$formattedInteger.$decimalPart ${Constants.currencySymbol}'
-        : '$formattedInteger.$decimalPart';
-  } else {
-    return showCurrency
-        ? '$formattedInteger ${Constants.currencySymbol}'
-        : formattedInteger;
-  }
+  // Divide base product prices by 100
+  return parsedPrice ~/ 100;
 }
 
-// Safe extract price from product JSON
-int extractPrice(dynamic priceData) {
-  if (priceData is Map && priceData.isNotEmpty) {
-    // Get the first value from the price map
-    var firstPrice = priceData.values.first;
-    return int.tryParse(firstPrice.toString()) ?? 0;
-  } else if (priceData is String) {
-    return int.tryParse(priceData) ?? 0;
-  } else if (priceData is int) {
-    return priceData;
+// Function to extract and properly format modification price
+int extractModificationPrice(dynamic rawPrice, bool isGroupModification) {
+  // If price is null or empty, return 0
+  if (rawPrice == null || rawPrice.toString().isEmpty) {
+    return 0;
   }
-  return 0;
+
+  // Try to parse the price to a number
+  int parsedPrice;
+  try {
+    // Handle various formats - strings, doubles, etc.
+    if (rawPrice is int) {
+      parsedPrice = rawPrice;
+    } else if (rawPrice is double) {
+      parsedPrice = rawPrice.toInt();
+    } else {
+      // Try to parse string to number
+      parsedPrice =
+          int.tryParse(rawPrice.toString().replaceAll(RegExp(r'[^0-9]'), '')) ??
+          0;
+    }
+  } catch (e) {
+    print('Error parsing modification price: $e');
+    parsedPrice = 0;
+  }
+
+  // For group modifications, return as is (no division)
+  // For regular modifications, divide by 100
+  return isGroupModification ? parsedPrice : parsedPrice ~/ 100;
+}
+
+// Add or update this function in your helpers/index.dart file
+
+/**
+ * Formats a price value for display
+ *
+ * @param dynamic price - The price value (can be int, double, or String)
+ * @param bool subtract - Whether to divide the price by 100 (defaults to true)
+ * @return String - The formatted price string
+ */
+String formatPrice(dynamic price, {bool subtract = true}) {
+  // Handle null values
+  if (price == null) {
+    return '0 сум';
+  }
+
+  // Convert to numeric value
+  num numericPrice;
+
+  if (price is int) {
+    numericPrice = price;
+  } else if (price is double) {
+    numericPrice = price;
+  } else {
+    // Try to parse string to number
+    try {
+      numericPrice = double.parse(price.toString());
+    } catch (e) {
+      print('Error parsing price: $e');
+      return '0 сум';
+    }
+  }
+
+  // Apply division if needed
+  // subtract=true: Divide by 100 (for display of regular prices and regular mods)
+  // subtract=false: Don't divide (for display of group modification prices)
+  final formattedValue = subtract ? numericPrice ~/ 100 : numericPrice.toInt();
+
+  // Return formatted with currency
+  return '${formattedValue.toString()} сум';
 }
 
 // Get image URL from product

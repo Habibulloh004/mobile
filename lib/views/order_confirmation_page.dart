@@ -7,9 +7,9 @@ import 'main_page.dart';
 class OrderConfirmationPage extends StatelessWidget {
   final int orderId;
   final List<Map<String, dynamic>> items;
-  final double total;
-  final double subtotal;
-  final double deliveryFee;
+  final int total; // Changed from double to int
+  final int subtotal; // Changed from double to int
+  final int deliveryFee; // Changed from double to int
   final String address;
   final bool isDelivery;
   final String paymentMethod;

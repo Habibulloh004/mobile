@@ -558,6 +558,9 @@ class ApiService {
   }
 
   // Mock orders for order history
+  // Update this method in your ApiService class to match the OrderModel and OrderItem constructors
+
+  // Mock orders for order history
   Future<List<OrderModel>> fetchOrderHistory() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -576,18 +579,21 @@ class ApiService {
 
       return [
         OrderModel(
-          id: 1,
+          id: "1",
+          // Changed to String
           date: '01.03.2025',
           items: [
             OrderItem(
-              productId: 101,
+              id: "101",
+              // Changed from productId to id
               name: 'Биг чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
               quantity: 2,
             ),
             OrderItem(
-              productId: 102,
+              id: "102",
+              // Changed from productId to id
               name: 'Чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
@@ -601,18 +607,21 @@ class ApiService {
           deliveryType: 'delivery',
         ),
         OrderModel(
-          id: 2,
+          id: "2",
+          // Changed to String
           date: '01.03.2025',
           items: [
             OrderItem(
-              productId: 103,
+              id: "103",
+              // Changed from productId to id
               name: 'Биг чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
               quantity: 2,
             ),
             OrderItem(
-              productId: 104,
+              id: "104",
+              // Changed from productId to id
               name: 'Чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
@@ -626,18 +635,21 @@ class ApiService {
           deliveryType: 'delivery',
         ),
         OrderModel(
-          id: 3,
+          id: "3",
+          // Changed to String
           date: '01.03.2025',
           items: [
             OrderItem(
-              productId: 105,
+              id: "105",
+              // Changed from productId to id
               name: 'Биг чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
               quantity: 2,
             ),
             OrderItem(
-              productId: 106,
+              id: "106",
+              // Changed from productId to id
               name: 'Чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',

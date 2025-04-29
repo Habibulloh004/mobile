@@ -56,6 +56,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // Submit order
+  // In checkout_page.dart, update the _submitOrder method to use int values
+
   Future<void> _submitOrder() async {
     if (!_validateForm()) {
       return;
@@ -80,8 +82,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 orderId: DateTime.now().millisecondsSinceEpoch % 1000,
                 items: cartProvider.cartItems,
                 total: cartProvider.total,
+                // Now returns int
                 subtotal: cartProvider.subtotal,
+                // Now returns int
                 deliveryFee: cartProvider.deliveryFee,
+                // Now returns int
                 address: _addressController.text,
                 isDelivery: cartProvider.isDelivery,
                 paymentMethod: _paymentMethod,

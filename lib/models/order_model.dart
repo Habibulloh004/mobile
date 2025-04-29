@@ -1,61 +1,32 @@
-class OrderItem {
-  final int productId;
-  final String name;
-  final int price;
-  final String imageUrl;
-  final int quantity;
-
-  OrderItem({
-    required this.productId,
-    required this.name,
-    required this.price,
-    required this.imageUrl,
-    required this.quantity,
-  });
-
-  factory OrderItem.fromJson(Map<String, dynamic> json) {
-    return OrderItem(
-      productId: json['product_id'] ?? 0,
-      name: json['name'] ?? 'Неизвестный товар',
-      price: json['price'] ?? 0,
-      imageUrl: json['imageUrl'] ?? '',
-      quantity: json['quantity'] ?? 1,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'product_id': productId,
-      'name': name,
-      'price': price,
-      'imageUrl': imageUrl,
-      'quantity': quantity,
-    };
-  }
-}
+// Update your order_model.dart file with these class definitions to match how they're used in API service
 
 class OrderModel {
-  final int id;
+  final String id; // Changed from int to String to match API usage
   final String date;
+  final String status;
+  final String deliveryType; // 'delivery' or 'pickup'
   final List<OrderItem> items;
   final int subtotal;
   final int deliveryFee;
   final int total;
-  final String status;
-  final String deliveryType; // 'delivery' or 'pickup'
+  final String? address;
+  final String? comment;
 
   OrderModel({
     required this.id,
     required this.date,
+    required this.status,
+    required this.deliveryType,
     required this.items,
     required this.subtotal,
     required this.deliveryFee,
     required this.total,
-    required this.status,
-    required this.deliveryType,
+    this.address,
+    this.comment,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
+    // Parse items
     List<OrderItem> orderItems = [];
     if (json['items'] != null) {
       orderItems = (json['items'] as List)
@@ -63,28 +34,83 @@ class OrderModel {
           .toList();
     }
 
+    // Convert values to int
+    int subtotal = _parseIntValue(json['subtotal']);
+    int deliveryFee = _parseIntValue(json['delivery_fee']);
+    int total = _parseIntValue(json['total']);
+
     return OrderModel(
-      id: json['id'] ?? 0,
-      date: json['date'] ?? '',
+      id: json['order_id']?.toString() ?? '',
+      date: json['date']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'В обработке',
+      deliveryType: json['delivery_type']?.toString() ?? 'delivery',
       items: orderItems,
-      subtotal: json['subtotal'] ?? 0,
-      deliveryFee: json['deliveryFee'] ?? 0,
-      total: json['total'] ?? 0,
-      status: json['status'] ?? 'В обработке',
-      deliveryType: json['deliveryType'] ?? 'delivery',
+      subtotal: subtotal,
+      deliveryFee: deliveryFee,
+      total: total,
+      address: json['address']?.toString(),
+      comment: json['comment']?.toString(),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'date': date,
-      'items': items.map((item) => item.toJson()).toList(),
-      'subtotal': subtotal,
-      'deliveryFee': deliveryFee,
-      'total': total,
-      'status': status,
-      'deliveryType': deliveryType,
-    };
+  // Helper method to parse numeric values to int
+  static int _parseIntValue(dynamic value) {
+    if (value == null) return 0;
+
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+
+    try {
+      return int.parse(value.toString());
+    } catch (e) {
+      return 0;
+    }
+  }
+}
+
+class OrderItem {
+  final String id; // Changed from productId to id to match constructor
+  final String name;
+  final int price;
+  final int quantity;
+  final String imageUrl;
+  final Map<String, dynamic>? modification;
+
+  OrderItem({
+    required this.id, // Updated parameter name
+    required this.name,
+    required this.price,
+    required this.quantity,
+    required this.imageUrl,
+    this.modification,
+  });
+
+  factory OrderItem.fromJson(Map<String, dynamic> json) {
+    // Convert values to int to maintain consistent types
+    int price = _parseIntValue(json['price']);
+    int quantity = _parseIntValue(json['quantity']);
+
+    return OrderItem(
+      id: json['product_id']?.toString() ?? '', // Parse product_id as id
+      name: json['name']?.toString() ?? '',
+      price: price,
+      quantity: quantity,
+      imageUrl: json['imageUrl']?.toString() ?? '',
+      modification: json['modification'],
+    );
+  }
+
+  // Helper method to parse numeric values to int
+  static int _parseIntValue(dynamic value) {
+    if (value == null) return 0;
+
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+
+    try {
+      return int.parse(value.toString());
+    } catch (e) {
+      return 0;
+    }
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
@@ -191,7 +192,7 @@ class CartPage extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    formatPrice(cartProvider.subtotal),
+                    formatPrice(cartProvider.subtotal, subtract: false),
                     style: TextStyle(
                       fontSize: Constants.fontSizeRegular,
                       fontWeight: FontWeight.bold,
@@ -216,7 +217,7 @@ class CartPage extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        formatPrice(cartProvider.deliveryFee),
+                        formatPrice(cartProvider.deliveryFee, subtract: false),
                         style: TextStyle(
                           fontSize: Constants.fontSizeRegular,
                           fontWeight: FontWeight.bold,
@@ -242,7 +243,7 @@ class CartPage extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      formatPrice(cartProvider.total),
+                      formatPrice(cartProvider.total, subtract: false),
                       style: TextStyle(
                         fontSize: Constants.fontSizeMedium,
                         fontWeight: FontWeight.bold,
@@ -293,25 +294,52 @@ class CartPage extends StatelessWidget {
     Map<String, dynamic> item,
     CartProvider cartProvider,
   ) {
-    // Check if this item has a modification
-    bool hasModification =
-        item.containsKey('modification') && item['modification'] != null;
+    // Determine modification type
+    bool hasRegularModification =
+        item.containsKey('modification') &&
+        item['modification'] is Map &&
+        item['modification'] != null;
+
+    bool hasGroupModifications =
+        item.containsKey('modification') &&
+        item['modification'] is String &&
+        item['modification'].toString().isNotEmpty;
+
+    bool hasModificationDetails =
+        item.containsKey('modification_details') &&
+        item['modification_details'] is List;
+
+    // Extract modification details
+    final modificationName =
+        hasRegularModification ? item['modification']['name'] : null;
+    final modificationPrice =
+        hasRegularModification ? (item['modification']['price'] ?? 0) : 0;
+    final modificationId =
+        hasRegularModification ? item['modification']['id'] : null;
+
+    // Parse group modifications
+    List<Map<String, dynamic>> groupModifications = [];
+    if (hasModificationDetails) {
+      groupModifications = List<Map<String, dynamic>>.from(
+        item['modification_details'],
+      );
+    } else if (hasGroupModifications) {
+      try {
+        // Fallback for old format without names
+        final List<dynamic> mods = jsonDecode(item['modification']);
+        if (mods.isNotEmpty) {
+          groupModifications = List<Map<String, dynamic>>.from(mods);
+        }
+      } catch (e) {
+        debugPrint("Error parsing group modifications: $e");
+      }
+    }
 
     // Extract price and quantity
     final price = item['price'] ?? 0;
-    final basePrice =
-        item['base_price'] ?? price; // Get original base price if available
+    final basePrice = item['base_price'] ?? price;
     final quantity = item['quantity'] ?? 1;
     final totalPrice = price * quantity;
-
-    // Extract modification details if available
-    final modificationName =
-        hasModification ? item['modification']['name'] : null;
-    final modificationPrice =
-        hasModification ? (item['modification']['price'] ?? 0) : 0;
-    final modificationId = hasModification ? item['modification']['id'] : null;
-    final modificationPhotoUrl =
-        hasModification ? item['modification']['photoUrl'] : null;
 
     // Helper method for quantity buttons
     Widget _buildQuantityButton({
@@ -351,7 +379,11 @@ class CartPage extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(12),
-                  bottomLeft: Radius.circular(hasModification ? 0 : 12),
+                  bottomLeft: Radius.circular(
+                    (hasRegularModification || groupModifications.isNotEmpty)
+                        ? 0
+                        : 12,
+                  ),
                 ),
                 child: Container(
                   width: 100,
@@ -393,7 +425,8 @@ class CartPage extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (hasModification)
+                          if (hasRegularModification ||
+                              groupModifications.isNotEmpty)
                             Container(
                               margin: EdgeInsets.only(left: 6),
                               padding: EdgeInsets.symmetric(
@@ -433,12 +466,13 @@ class CartPage extends StatelessWidget {
                           ),
                           children: [
                             TextSpan(
-                              text: formatPrice(totalPrice),
+                              text: formatPrice(totalPrice, subtract: false),
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             if (quantity > 1)
                               TextSpan(
-                                text: '  (${formatPrice(price)} × $quantity)',
+                                text:
+                                    '  (${formatPrice(price, subtract: false)} × $quantity)',
                                 style: TextStyle(
                                   fontSize: Constants.fontSizeSmall,
                                   color: Colors.grey[600],
@@ -474,11 +508,18 @@ class CartPage extends StatelessWidget {
                                 _buildQuantityButton(
                                   icon: Icons.remove,
                                   onTap: () {
-                                    if (hasModification) {
+                                    if (hasRegularModification) {
                                       cartProvider.updateQuantity(
                                         item['product_id'],
                                         -1,
                                         modificationId: modificationId,
+                                      );
+                                    } else if (hasGroupModifications) {
+                                      cartProvider.updateQuantity(
+                                        item['product_id'],
+                                        -1,
+                                        groupModifications:
+                                            item['modification'],
                                       );
                                     } else {
                                       cartProvider.updateQuantity(
@@ -502,11 +543,18 @@ class CartPage extends StatelessWidget {
                                 _buildQuantityButton(
                                   icon: Icons.add,
                                   onTap: () {
-                                    if (hasModification) {
+                                    if (hasRegularModification) {
                                       cartProvider.updateQuantity(
                                         item['product_id'],
                                         1,
                                         modificationId: modificationId,
+                                      );
+                                    } else if (hasGroupModifications) {
+                                      cartProvider.updateQuantity(
+                                        item['product_id'],
+                                        1,
+                                        groupModifications:
+                                            item['modification'],
                                       );
                                     } else {
                                       cartProvider.updateQuantity(
@@ -540,8 +588,8 @@ class CartPage extends StatelessWidget {
             ],
           ),
 
-          // Modification info section (if available)
-          if (hasModification)
+          // Regular Modification info section (if available)
+          if (hasRegularModification)
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -570,6 +618,9 @@ class CartPage extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // In CartPage, update the price display in the _buildCartItemCard method:
+
+                  // Regular modification price display
                   if (modificationPrice > 0)
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -578,7 +629,8 @@ class CartPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        '+${formatPrice(modificationPrice)}',
+                        '+${formatPrice(modificationPrice, subtract: false)}',
+                        // Regular modifications are already divided during loading
                         style: TextStyle(
                           fontSize: Constants.fontSizeSmall,
                           fontWeight: FontWeight.bold,
@@ -586,6 +638,100 @@ class CartPage extends StatelessWidget {
                         ),
                       ),
                     ),
+
+                  // Group modification price display
+                  if (price != null && price > 0)
+                    Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Text(
+                        '+${formatPrice(price, subtract: true)}',
+                        // Group modifications should be divided here for display
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: ColorUtils.accentColor,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+          // Group Modifications info section (if available)
+          if (groupModifications.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: ColorUtils.primaryColor.withOpacity(0.5),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Добавки:',
+                    style: TextStyle(
+                      fontSize: Constants.fontSizeSmall,
+                      fontWeight: FontWeight.bold,
+                      color: ColorUtils.secondaryColor,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children:
+                        groupModifications.map((mod) {
+                          // Display name if available, otherwise show ID
+                          String displayText =
+                              mod.containsKey("name")
+                                  ? mod["name"]
+                                  : "ID: ${mod["m"]}";
+                          int? price =
+                              mod.containsKey("price") ? mod["price"] : null;
+
+                          return Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: ColorUtils.accentColor.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  displayText,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: ColorUtils.secondaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (price != null && price > 0)
+                                  Padding(
+                                    padding: EdgeInsets.only(left: 4),
+                                    child: Text(
+                                      '+${formatPrice(price, subtract: false)}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: ColorUtils.accentColor,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                  ),
                 ],
               ),
             ),

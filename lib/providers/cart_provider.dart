@@ -12,7 +12,8 @@ class CartProvider with ChangeNotifier {
 
   // Optional delivery info
   bool _isDelivery = true; // true = delivery, false = pickup
-  int _deliveryFee = 10000; // This value might need adjusting based on your pricing scheme
+  int _deliveryFee =
+      10000; // This value might need adjusting based on your pricing scheme
 
   CartProvider() {
     _loadCartFromCache();
@@ -49,7 +50,9 @@ class CartProvider with ChangeNotifier {
 
         // Log loaded price values to debug
         for (var item in _cartItems) {
-          debugPrint('📊 Loaded item: ${item['name']}, price: ${item['price']}');
+          debugPrint(
+            '📊 Loaded item: ${item['name']}, price: ${item['price']}',
+          );
         }
 
         notifyListeners();
@@ -66,9 +69,7 @@ class CartProvider with ChangeNotifier {
       final Map<String, dynamic> cartData = {
         'items': _cartItems,
         'isDelivery': _isDelivery,
-        'timestamp': DateTime
-            .now()
-            .millisecondsSinceEpoch,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
       };
 
       await prefs.setString(CART_CACHE_KEY, jsonEncode(cartData));
@@ -100,10 +101,10 @@ class CartProvider with ChangeNotifier {
 
           // Sort both lists to ensure consistent comparison
           productMods.sort(
-                (a, b) => a['m'].toString().compareTo(b['m'].toString()),
+            (a, b) => a['m'].toString().compareTo(b['m'].toString()),
           );
           itemMods.sort(
-                (a, b) => a['m'].toString().compareTo(b['m'].toString()),
+            (a, b) => a['m'].toString().compareTo(b['m'].toString()),
           );
 
           // If the modifications are different, this is a different item
@@ -133,7 +134,7 @@ class CartProvider with ChangeNotifier {
 
       // Case 3: Neither has modifications
       if ((!product.containsKey('modification') ||
-          product['modification'] == null) &&
+              product['modification'] == null) &&
           (!item.containsKey('modification') || item['modification'] == null)) {
         return i;
       }
@@ -144,7 +145,8 @@ class CartProvider with ChangeNotifier {
 
   void addItem(Map<String, dynamic> product) {
     debugPrint(
-        "📌 Adding item to cart: ${product['name']}, price: ${product['price']}");
+      "📌 Adding item to cart: ${product['name']}, price: ${product['price']}",
+    );
 
     // Find this exact product in the cart
     final existingIndex = _findCartItemIndex(product);
@@ -166,9 +168,9 @@ class CartProvider with ChangeNotifier {
     } else {
       // If product is new, add it with specified quantity or default to 1
       int quantity =
-      (product.containsKey('quantity') && product['quantity'] > 0)
-          ? product['quantity']
-          : 1;
+          (product.containsKey('quantity') && product['quantity'] > 0)
+              ? product['quantity']
+              : 1;
 
       // Make a deep copy to ensure we don't modify the original product
       Map<String, dynamic> newItem = {...product, 'quantity': quantity};
@@ -178,8 +180,8 @@ class CartProvider with ChangeNotifier {
         newItem['modification_details'] = product['modification_details'];
       }
 
-      // IMPORTANT: Use adaptive price handling - prices are already correctly formatted
-      // by the ProductModel's effectivePrice and extraction methods
+      // IMPORTANT: Prices are already correctly formatted by ProductModel's effectivePrice
+      // No further processing needed here
 
       _cartItems.add(newItem);
       debugPrint(
@@ -205,11 +207,12 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  void updateQuantity(int productId,
-      int change, {
-        String? modificationId,
-        String? groupModifications,
-      }) {
+  void updateQuantity(
+    int productId,
+    int change, {
+    String? modificationId,
+    String? groupModifications,
+  }) {
     try {
       // Create a dummy product to use _findCartItemIndex
       final Map<String, dynamic> dummyProduct = {'product_id': productId};
@@ -254,7 +257,7 @@ class CartProvider with ChangeNotifier {
       int price = 0;
       int quantity = 1;
 
-      // Convert price to int if needed
+      // Convert price to int if needed - no division needed as price is already properly processed
       if (item['price'] is int) {
         price = item['price'] as int;
       } else if (item['price'] is double) {
@@ -282,8 +285,7 @@ class CartProvider with ChangeNotifier {
 
       total += price * quantity;
       debugPrint(
-        '🧮 Cart item: ${item['name']} - $price × $quantity = ${price *
-            quantity}',
+        '🧮 Cart item: ${item['name']} - $price × $quantity = ${price * quantity}',
       );
     }
 
@@ -330,9 +332,9 @@ class CartProvider with ChangeNotifier {
     final cartItem = product.toCartItem();
 
     // Debug log the price before adding to cart
-    debugPrint("📊 Adding product model to cart: ${product
-        .name}, original price: ${product.price}, effective price: ${product
-        .effectivePrice}");
+    debugPrint(
+      "📊 Adding product model to cart: ${product.name}, original price: ${product.price}, effective price: ${product.effectivePrice}",
+    );
 
     addItem(cartItem);
   }

@@ -66,24 +66,9 @@ class ProductModification {
 
     // Check if using the old or new format
     if (json.containsKey('modificator_id')) {
-      // IMPORTANT: handle string prices by dividing by 100
+      // Process price based on the value type
       final dynamic rawPrice = json['modificator_selfprice'];
-      int price = 0;
-
-      if (rawPrice is String) {
-        // Parse string to integer and ALWAYS divide by 100
-        try {
-          int parsedPrice = int.tryParse(rawPrice.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-          price = parsedPrice ~/ 100;
-          debugPrint('📊 Modification string price: $rawPrice → $parsedPrice → $price (divided by 100)');
-        } catch (e) {
-          debugPrint('❌ Error parsing modification price: $e');
-        }
-      } else if (rawPrice is num) {
-        // For numeric prices, still divide by 100 for consistency
-        price = (rawPrice ~/ 100);
-        debugPrint('📊 Modification numeric price: $rawPrice → $price (divided by 100)');
-      }
+      int price = parsePrice(rawPrice);
 
       return ProductModification(
         id: json['modificator_id']?.toString() ?? '',
@@ -104,24 +89,8 @@ class ProductModification {
         photoUrl = json['photo_small'];
       }
 
-      // Process price based on type
-      final dynamic rawPrice = json['price'];
-      int price = 0;
-
-      if (rawPrice is String) {
-        // Parse string to integer and ALWAYS divide by 100
-        try {
-          int parsedPrice = int.tryParse(rawPrice.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-          price = parsedPrice ~/ 100;
-          debugPrint('📊 Group mod string price: $rawPrice → $parsedPrice → $price (divided by 100)');
-        } catch (e) {
-          debugPrint('❌ Error parsing group mod price: $e');
-        }
-      } else if (rawPrice is num) {
-        // For numeric prices, still divide by 100 for consistency
-        price = (rawPrice ~/ 100);
-        debugPrint('📊 Group mod numeric price: $rawPrice → $price (divided by 100)');
-      }
+      // Process price based on the value type
+      int price = parsePrice(json['price']);
 
       return ProductModification(
         id: json['dish_modification_id']?.toString() ?? '',
@@ -197,8 +166,8 @@ class ProductModel {
     // Log the original price before extraction for debugging
     debugPrint('📊 Product price before extraction: ${json['price']}');
 
-    // Extract price using the updated helper function
-    final price = extractPrice(json['price']);
+    // Extract price using the parsePrice helper function
+    final price = parsePrice(json['price']);
 
     // Log the extracted price
     debugPrint('📊 Product price after extraction: $price');

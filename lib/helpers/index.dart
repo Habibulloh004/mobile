@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-
 import '../constant/index.dart';
 
 String cleanProductName(String name) {
@@ -13,6 +12,85 @@ String cleanProductName(String name) {
   return name;
 }
 
+/// Parses and processes price values from various formats into a standardized integer value
+///
+/// This function handles both string and numeric price values:
+/// - For string values: Removes non-numeric characters, parses to int, and divides by 100
+/// - For numeric values: Converts to int without division (assumes already processed)
+///
+/// @param value The price value to process (can be String, int, double, or dynamic)
+/// @param [divideStringsByHundred=true] Whether to divide string prices by 100
+/// @return Standardized integer price value
+int parsePrice(dynamic value, {bool divideStringsByHundred = true}) {
+  // Handle null values
+  if (value == null) return 0;
+
+  // Debug log the input value and its type
+  debugPrint('🔢 Parsing price: $value (type: ${value.runtimeType})');
+
+  // Handle numeric values (no division needed for numbers)
+  if (value is int) return value;
+  if (value is double) return value.toInt();
+
+  // Handle string values
+  if (value is String) {
+    try {
+      // Clean the string (remove non-numeric chars except decimal point)
+      String cleaned = value.replaceAll(RegExp(r'[^0-9.]'), '');
+
+      if (cleaned.isEmpty) return 0;
+
+      // Parse the string to a numeric value
+      num numericValue;
+      if (cleaned.contains('.')) {
+        numericValue = double.parse(cleaned);
+      } else {
+        numericValue = int.parse(cleaned);
+      }
+
+      // Apply division by 100 if needed (for string prices)
+      if (divideStringsByHundred) {
+        debugPrint(
+          '💰 Dividing string price by 100: $numericValue ÷ 100 = ${numericValue / 100}',
+        );
+        return (numericValue ~/ 100);
+      } else {
+        return numericValue.toInt();
+      }
+    } catch (e) {
+      debugPrint('❌ Error parsing price: $e');
+      return 0;
+    }
+  }
+
+  // For Map values (like API responses that have price in a nested structure)
+  if (value is Map && value.isNotEmpty) {
+    // Get the first value from the price map
+    var firstPrice = value.values.first;
+    debugPrint(
+      '📊 Extracted price from map: $firstPrice (type: ${firstPrice?.runtimeType})',
+    );
+
+    // Recursive call to process the extracted price
+    return parsePrice(
+      firstPrice,
+      divideStringsByHundred: divideStringsByHundred,
+    );
+  }
+
+  // For any other type, try converting to string first, then parse
+  try {
+    return parsePrice(
+      value.toString(),
+      divideStringsByHundred: divideStringsByHundred,
+    );
+  } catch (e) {
+    debugPrint('❌ Error parsing price of unknown type: $e');
+    return 0;
+  }
+}
+
+// Helper method to parse numeric values to int
 int _parseToInt(dynamic value) {
   if (value == null) return 0;
 
@@ -42,8 +120,8 @@ int extractModificationPrice(dynamic rawPrice, bool isGroupModification) {
     '📊 Modification price: $rawPrice (parsed: $parsedPrice, isGroup: $isGroupModification)',
   );
 
-  // IMPORTANT CHANGE: Always divide all prices by 100, regardless of type
-  return parsedPrice;
+  // IMPORTANT: Always divide all prices by 100, regardless of type
+  return parsedPrice ~/ 100;
 }
 
 bool isGroupModification(Map<String, dynamic> json) {
@@ -101,57 +179,6 @@ String formatPrice(
   }
 }
 
-int parsePrice(dynamic value, {bool divideBy100 = true}) {
-  // Handle null values
-  if (value == null) return 0;
-
-  // Debug log the input value and its type
-  debugPrint('🔢 Parsing price: $value (type: ${value.runtimeType})');
-
-  // Handle numeric values (no division needed)
-  if (value is int) return value;
-  if (value is double) return value.toInt();
-
-  // Handle string values
-  if (value is String) {
-    try {
-      // Clean the string (remove non-numeric chars except decimal point)
-      String cleaned = value.replaceAll(RegExp(r'[^0-9.]'), '');
-
-      if (cleaned.isEmpty) return 0;
-
-      // Parse the string to a numeric value
-      num numericValue;
-      if (cleaned.contains('.')) {
-        numericValue = double.parse(cleaned);
-      } else {
-        numericValue = int.parse(cleaned);
-      }
-
-      // Apply division by 100 if needed (for string prices)
-      if (divideBy100) {
-        debugPrint(
-          '💰 Dividing string price by 100: $numericValue ÷ 100 = ${numericValue / 100}',
-        );
-        return (numericValue / 100).toInt();
-      } else {
-        return numericValue.toInt();
-      }
-    } catch (e) {
-      debugPrint('❌ Error parsing price: $e');
-      return 0;
-    }
-  }
-
-  // For any other type, try converting to string first, then parse
-  try {
-    return parsePrice(value.toString(), divideBy100: divideBy100);
-  } catch (e) {
-    debugPrint('❌ Error parsing price of unknown type: $e');
-    return 0;
-  }
-}
-
 int extractPrice(dynamic priceData) {
   // Debug the input
   debugPrint(
@@ -165,7 +192,7 @@ int extractPrice(dynamic priceData) {
       '📊 Extracted price from map: $firstPrice (type: ${firstPrice?.runtimeType})',
     );
 
-    // ALWAYS divide by 100 for consistency with API values
+    // Handle different price formats
     if (firstPrice is String) {
       // Parse string to integer and divide by 100
       int parsed =

@@ -341,6 +341,23 @@ class CartPage extends StatelessWidget {
     final quantity = item['quantity'] ?? 1;
     final totalPrice = price * quantity;
 
+    // Get product display name with modification
+    String displayName = cleanProductName(item['name'] ?? 'Unknown Product');
+
+    // For items with regular modifications or group modifications with a single item,
+    // append the modification name to the product name
+    String modificationDisplayName = "";
+    if (hasRegularModification && modificationName != null) {
+      modificationDisplayName = modificationName;
+    } else if (hasModificationDetails && groupModifications.length == 1) {
+      modificationDisplayName = groupModifications[0]['name'] ?? "";
+    }
+
+    // If we have a modification name, append it to the product name
+    if (modificationDisplayName.isNotEmpty) {
+      displayName = "$displayName (${modificationDisplayName})";
+    }
+
     // Helper method for quantity buttons
     Widget _buildQuantityButton({
       required IconData icon,
@@ -408,14 +425,13 @@ class CartPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product name with badge for modifications
+                      // Product name already includes the modification in format "Product (Modification)"
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: Text(
-                              cleanProductName(
-                                item['name'] ?? 'Unknown Product',
-                              ),
+                              displayName,
                               style: TextStyle(
                                 fontSize: Constants.fontSizeRegular,
                                 fontWeight: FontWeight.bold,
@@ -425,30 +441,36 @@ class CartPage extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (hasRegularModification ||
-                              groupModifications.isNotEmpty)
-                            Container(
-                              margin: EdgeInsets.only(left: 6),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: ColorUtils.accentColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: ColorUtils.accentColor.withOpacity(
-                                    0.3,
-                                  ),
-                                  width: 1,
+                          // Variant badge moved to a better position with padding
+                          if ((hasRegularModification ||
+                                  groupModifications.isNotEmpty) &&
+                              modificationDisplayName.isEmpty)
+                            Padding(
+                              padding: EdgeInsets.only(left: 6, top: 2),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
                                 ),
-                              ),
-                              child: Text(
-                                'Вариант',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: ColorUtils.accentColor,
+                                decoration: BoxDecoration(
+                                  color: ColorUtils.accentColor.withOpacity(
+                                    0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: ColorUtils.accentColor.withOpacity(
+                                      0.3,
+                                    ),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Вариант',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: ColorUtils.accentColor,
+                                  ),
                                 ),
                               ),
                             ),
@@ -471,8 +493,7 @@ class CartPage extends StatelessWidget {
                             ),
                             if (quantity > 1)
                               TextSpan(
-                                text:
-                                    '  (${formatPrice(price)} × $quantity)',
+                                text: '  (${formatPrice(price)} × $quantity)',
                                 style: TextStyle(
                                   fontSize: Constants.fontSizeSmall,
                                   color: Colors.grey[600],
@@ -588,8 +609,8 @@ class CartPage extends StatelessWidget {
             ],
           ),
 
-          // Regular Modification info section (if available)
-          if (hasRegularModification)
+          // Regular Modification info section (if available) - only show if not already in product name
+          if (hasRegularModification && modificationDisplayName.isEmpty)
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -610,7 +631,7 @@ class CartPage extends StatelessWidget {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Вариант: $modificationName',
+                      modificationName ?? "",
                       style: TextStyle(
                         fontSize: Constants.fontSizeSmall,
                         fontWeight: FontWeight.bold,
@@ -618,8 +639,6 @@ class CartPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // In CartPage, update the price display in the _buildCartItemCard method:
-
                   // Regular modification price display
                   if (modificationPrice > 0)
                     Container(
@@ -630,23 +649,9 @@ class CartPage extends StatelessWidget {
                       ),
                       child: Text(
                         '+${formatPrice(modificationPrice)}',
-                        // These prices are already properly divided during parsing
                         style: TextStyle(
                           fontSize: Constants.fontSizeSmall,
                           fontWeight: FontWeight.bold,
-                          color: ColorUtils.accentColor,
-                        ),
-                      ),
-                    ),
-                  // Group modification price display
-                  if (price != null && price > 0)
-                    Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Text(
-                        '+${formatPrice(price)}',
-                        // Group mod prices are already in correct format, don't divide again
-                        style: TextStyle(
-                          fontSize: 10,
                           color: ColorUtils.accentColor,
                         ),
                       ),
@@ -656,7 +661,10 @@ class CartPage extends StatelessWidget {
             ),
 
           // Group Modifications info section (if available)
-          if (groupModifications.isNotEmpty)
+          // Only show this section for multiple group modifications or if not already shown in product name
+          if (groupModifications.isNotEmpty &&
+              (groupModifications.length > 1 ||
+                  modificationDisplayName.isEmpty))
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -682,54 +690,67 @@ class CartPage extends StatelessWidget {
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
+                    // Only show modifications that aren't already shown in the product name
                     children:
-                        groupModifications.map((mod) {
-                          // Display name if available, otherwise show ID
-                          String displayText =
-                              mod.containsKey("name")
-                                  ? mod["name"]
-                                  : "ID: ${mod["m"]}";
-                          int? price =
-                              mod.containsKey("price") ? mod["price"] : null;
+                        groupModifications
+                            .where(
+                              (mod) =>
+                                  modificationDisplayName.isEmpty ||
+                                  mod["name"] != modificationDisplayName,
+                            )
+                            .map((mod) {
+                              // Display name if available, otherwise show ID
+                              String displayText =
+                                  mod.containsKey("name")
+                                      ? mod["name"]
+                                      : "ID: ${mod["m"]}";
+                              int? price =
+                                  mod.containsKey("price")
+                                      ? mod["price"]
+                                      : null;
 
-                          return Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: ColorUtils.accentColor.withOpacity(0.3),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  displayText,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: ColorUtils.secondaryColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              return Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
                                 ),
-                                if (price != null && price > 0)
-                                  Padding(
-                                    padding: EdgeInsets.only(left: 4),
-                                    child: Text(
-                                      '+${formatPrice(price)}',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: ColorUtils.accentColor,
-                                      ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: ColorUtils.accentColor.withOpacity(
+                                      0.3,
                                     ),
                                   ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      displayText,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: ColorUtils.secondaryColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    // Only show price if it's positive
+                                    if (price != null && price > 0)
+                                      Padding(
+                                        padding: EdgeInsets.only(left: 4),
+                                        child: Text(
+                                          '+${formatPrice(price)}',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: ColorUtils.accentColor,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            })
+                            .toList(),
                   ),
                 ],
               ),

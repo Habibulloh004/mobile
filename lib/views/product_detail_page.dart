@@ -100,8 +100,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     return jsonEncode(result);
   }
 
-  // Updated calculateTotalPrice method for ProductDetailPage with adaptive price handling
-
   // Function to calculate total price including all selected modifications
   int calculateTotalPrice(ProductModel product) {
     // Base price is already properly scaled during product loading
@@ -130,18 +128,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     debugPrint('💰 Final total with group mods: $totalPrice');
 
     return totalPrice;
-  }
-
-  // Helper method to display prices in the product detail UI
-  Widget _buildPriceDisplay(int price) {
-    return Text(
-      formatPrice(price), // No additional division
-      style: TextStyle(
-        fontSize: Constants.fontSizeLarge,
-        fontWeight: FontWeight.bold,
-        color: ColorUtils.accentColor,
-      ),
-    );
   }
 
   @override
@@ -592,35 +578,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 // Prepare cart item data
                                 Map<String, dynamic> cartItem = {};
 
+                                // Create selected modifications data with names for display - only create ONCE
                                 List<Map<String, dynamic>>
                                 selectedModsWithNames = [];
-                                _selectedGroupModifications.forEach((
-                                  id,
-                                  isSelected,
-                                ) {
-                                  if (isSelected &&
-                                      _modificationDetailsMap.containsKey(id)) {
-                                    int? modId;
-                                    try {
-                                      modId = int.parse(id);
-                                    } catch (e) {
-                                      modId = null;
-                                    }
-
-                                    selectedModsWithNames.add({
-                                      "m": modId ?? id,
-                                      "a": 1,
-                                      "name": _modificationDetailsMap[id]!.name,
-                                      "price":
-                                          _modificationDetailsMap[id]!.price,
-                                      // Don't divide, already correct
-                                    });
-                                  }
-                                });
-
-                                // Create selected modifications data with names for display
-                                // List<Map<String, dynamic>>
-                                // selectedModsWithNames = [];
                                 _selectedGroupModifications.forEach((
                                   id,
                                   isSelected,
@@ -656,7 +616,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                     'product_id': product.id,
                                     'name': product.name,
                                     'price': totalPrice,
-                                    // This is already calculated correctly without division
                                     'base_price': product.price,
                                     'imageUrl': product.imageUrl,
                                     'quantity': _quantity,

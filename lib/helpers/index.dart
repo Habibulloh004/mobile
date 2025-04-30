@@ -1,3 +1,8 @@
+// lib/helpers/index.dart
+// Updated helper functions for price handling
+
+import 'package:flutter/cupertino.dart';
+
 import '../constant/index.dart';
 
 String cleanProductName(String name) {
@@ -11,7 +16,20 @@ String cleanProductName(String name) {
   return name;
 }
 
-// Add or update these helper functions in your helpers/index.dart file
+int _parseToInt(dynamic value) {
+  if (value == null) return 0;
+
+  if (value is int) return value;
+  if (value is double) return value.toInt();
+
+  try {
+    // Remove non-numeric characters
+    return int.parse(value.toString().replaceAll(RegExp(r'[^0-9]'), ''));
+  } catch (e) {
+    debugPrint('Error parsing value: $e');
+    return 0;
+  }
+}
 
 // Function to extract and properly format product price
 int extractPrice(dynamic rawPrice) {
@@ -20,27 +38,21 @@ int extractPrice(dynamic rawPrice) {
     return 0;
   }
 
-  // Try to parse the price to a number
-  int parsedPrice;
-  try {
-    // Handle various formats - strings, doubles, etc.
-    if (rawPrice is int) {
-      parsedPrice = rawPrice;
-    } else if (rawPrice is double) {
-      parsedPrice = rawPrice.toInt();
-    } else {
-      // Try to parse string to number
-      parsedPrice =
-          int.tryParse(rawPrice.toString().replaceAll(RegExp(r'[^0-9]'), '')) ??
-          0;
-    }
-  } catch (e) {
-    print('Error parsing price: $e');
-    parsedPrice = 0;
-  }
+  // Parse to int
+  int parsedPrice = _parseToInt(rawPrice);
 
-  // Divide base product prices by 100
+  // IMPORTANT: Divide base product prices by 100
   return parsedPrice ~/ 100;
+}
+
+bool isGroupModification(Map<String, dynamic> json) {
+  // Check for dish_modification_id (indicates group mod)
+  if (json.containsKey('dish_modification_id')) return true;
+
+  // Check if price is a number type (group mods have number prices)
+  if (json.containsKey('price') && json['price'] is num) return true;
+
+  return false;
 }
 
 // Function to extract and properly format modification price
@@ -50,31 +62,17 @@ int extractModificationPrice(dynamic rawPrice, bool isGroupModification) {
     return 0;
   }
 
-  // Try to parse the price to a number
-  int parsedPrice;
-  try {
-    // Handle various formats - strings, doubles, etc.
-    if (rawPrice is int) {
-      parsedPrice = rawPrice;
-    } else if (rawPrice is double) {
-      parsedPrice = rawPrice.toInt();
-    } else {
-      // Try to parse string to number
-      parsedPrice =
-          int.tryParse(rawPrice.toString().replaceAll(RegExp(r'[^0-9]'), '')) ??
-          0;
-    }
-  } catch (e) {
-    print('Error parsing modification price: $e');
-    parsedPrice = 0;
-  }
+  // Parse to int
+  int parsedPrice = _parseToInt(rawPrice);
 
-  // For group modifications, return as is (no division)
-  // For regular modifications, divide by 100
-  return isGroupModification ? parsedPrice : parsedPrice ~/ 100;
+  // Debug log
+  debugPrint(
+    '📊 Modification price: $rawPrice (parsed: $parsedPrice, isGroup: $isGroupModification)',
+  );
+
+  // IMPORTANT CHANGE: Always divide all prices by 100, regardless of type
+  return parsedPrice ~/ 100;
 }
-
-// Add or update this function in your helpers/index.dart file
 
 /**
  * Formats a price value for display
@@ -83,36 +81,25 @@ int extractModificationPrice(dynamic rawPrice, bool isGroupModification) {
  * @param bool subtract - Whether to divide the price by 100 (defaults to true)
  * @return String - The formatted price string
  */
+
 String formatPrice(dynamic price, {bool subtract = true}) {
   // Handle null values
   if (price == null) {
-    return '0 сум';
+    return '0 ${Constants.currencySymbol}';
   }
 
-  // Convert to numeric value
-  num numericPrice;
+  // Parse to numeric value
+  int numericPrice = _parseToInt(price);
 
-  if (price is int) {
-    numericPrice = price;
-  } else if (price is double) {
-    numericPrice = price;
-  } else {
-    // Try to parse string to number
-    try {
-      numericPrice = double.parse(price.toString());
-    } catch (e) {
-      print('Error parsing price: $e');
-      return '0 сум';
-    }
-  }
+  // Debug log
+  debugPrint('💰 Formatting price: $price → $numericPrice, subtract: $subtract');
 
-  // Apply division if needed
-  // subtract=true: Divide by 100 (for display of regular prices and regular mods)
-  // subtract=false: Don't divide (for display of group modification prices)
-  final formattedValue = subtract ? numericPrice ~/ 100 : numericPrice.toInt();
+  // IMPORTANT CHANGE: If subtract is false, don't perform any division (prices are already divided)
+  // If subtract is true (default), divide by 100 for backward compatibility
+  final formattedValue = subtract ? numericPrice ~/ 100 : numericPrice;
 
   // Return formatted with currency
-  return '${formattedValue.toString()} сум';
+  return '${formattedValue.toString()} ${Constants.currencySymbol}';
 }
 
 // Get image URL from product

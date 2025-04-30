@@ -100,25 +100,32 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     return jsonEncode(result);
   }
 
-// In product_detail_page.dart, update the calculateTotalPrice method:
+  // In product_detail_page.dart, update the calculateTotalPrice method:
 
-// Calculate total price including all selected modifications
+  // Calculate total price including all selected modifications
   int calculateTotalPrice(ProductModel product) {
     // Base price is already divided by 100 during product loading
     int totalPrice = product.price;
+    debugPrint('💰 Base price: ${product.price}');
 
     // Add price for regular modifications (already divided by 100 during loading)
     if (product.selectedModification != null) {
       totalPrice += product.selectedModification!.price;
+      debugPrint('💰 With regular mod: +${product.selectedModification!.price} = $totalPrice');
     }
 
-    // Add prices for group modifications (should NOT be divided)
+    // Add prices for group modifications (now also divided by 100)
+    int groupModTotal = 0;
     _selectedGroupModifications.forEach((id, isSelected) {
       if (isSelected && _modificationDetailsMap.containsKey(id)) {
-        // Group modification prices are already in correct format
-        totalPrice += _modificationDetailsMap[id]!.price;
+        int modPrice = _modificationDetailsMap[id]!.price;
+        groupModTotal += modPrice;
+        debugPrint('💰 Group mod: $id = +$modPrice');
       }
     });
+
+    totalPrice += groupModTotal;
+    debugPrint('💰 Final total with group mods: $totalPrice');
 
     return totalPrice;
   }
@@ -571,9 +578,35 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 // Prepare cart item data
                                 Map<String, dynamic> cartItem = {};
 
-                                // Create selected modifications data with names for display
                                 List<Map<String, dynamic>>
                                 selectedModsWithNames = [];
+                                _selectedGroupModifications.forEach((
+                                  id,
+                                  isSelected,
+                                ) {
+                                  if (isSelected &&
+                                      _modificationDetailsMap.containsKey(id)) {
+                                    int? modId;
+                                    try {
+                                      modId = int.parse(id);
+                                    } catch (e) {
+                                      modId = null;
+                                    }
+
+                                    selectedModsWithNames.add({
+                                      "m": modId ?? id,
+                                      "a": 1,
+                                      "name": _modificationDetailsMap[id]!.name,
+                                      "price":
+                                          _modificationDetailsMap[id]!.price,
+                                      // Don't divide, already correct
+                                    });
+                                  }
+                                });
+
+                                // Create selected modifications data with names for display
+                                // List<Map<String, dynamic>>
+                                // selectedModsWithNames = [];
                                 _selectedGroupModifications.forEach((
                                   id,
                                   isSelected,

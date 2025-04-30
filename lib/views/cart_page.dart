@@ -630,7 +630,7 @@ class CartPage extends StatelessWidget {
                       ),
                       child: Text(
                         '+${formatPrice(modificationPrice, subtract: false)}',
-                        // Regular modifications are already divided during loading
+                        // These prices are already properly divided during parsing
                         style: TextStyle(
                           fontSize: Constants.fontSizeSmall,
                           fontWeight: FontWeight.bold,
@@ -638,14 +638,13 @@ class CartPage extends StatelessWidget {
                         ),
                       ),
                     ),
-
                   // Group modification price display
                   if (price != null && price > 0)
                     Padding(
                       padding: EdgeInsets.only(left: 4),
                       child: Text(
-                        '+${formatPrice(price, subtract: true)}',
-                        // Group modifications should be divided here for display
+                        '+${formatPrice(price, subtract: false)}',
+                        // Group mod prices are already in correct format, don't divide again
                         style: TextStyle(
                           fontSize: 10,
                           color: ColorUtils.accentColor,

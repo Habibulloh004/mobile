@@ -20,6 +20,7 @@ class CartProvider with ChangeNotifier {
   List<Map<String, dynamic>> get cartItems => _cartItems;
 
   bool get isDelivery => _isDelivery;
+
   int get deliveryFee => _isDelivery ? _deliveryFee : 0;
 
   // Set delivery method
@@ -169,21 +170,7 @@ class CartProvider with ChangeNotifier {
       }
 
       // IMPORTANT: Make sure the prices are correctly formatted
-      // Base product price is already divided by 100
-
-      // If this product has group modifications (String format),
-      // make sure their price is NOT divided by 100
-      if (product.containsKey('modification') &&
-          product['modification'] is String &&
-          product['modification'].toString().isNotEmpty) {
-        // Group modifications - price is already correct
-      }
-      // If this product has regular modification (Map format),
-      // make sure its price is divided by 100
-      else if (product.containsKey('modification') &&
-          product['modification'] is Map) {
-        // Regular modification - price is already divided during creation
-      }
+      // All prices are already divided by 100 at this point, no need for additional division
 
       _cartItems.add(newItem);
       debugPrint(
@@ -260,7 +247,7 @@ class CartProvider with ChangeNotifier {
       int price = 0;
       int quantity = 1;
 
-      // Convert price to int if needed - handle both int and double
+      // Convert price to int if needed
       if (item['price'] is int) {
         price = item['price'] as int;
       } else if (item['price'] is double) {
@@ -287,7 +274,12 @@ class CartProvider with ChangeNotifier {
       }
 
       total += price * quantity;
+      debugPrint(
+        '🧮 Cart item: ${item['name']} - $price × $quantity = ${price * quantity}',
+      );
     }
+
+    debugPrint('🧮 Cart subtotal: $total');
     return total;
   }
 

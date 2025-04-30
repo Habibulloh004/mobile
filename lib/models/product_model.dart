@@ -1,5 +1,6 @@
 // lib/models/product_model.dart
 
+import 'package:flutter/foundation.dart';
 import 'package:poster_app/helpers/index.dart';
 
 class GroupModification {
@@ -60,9 +61,13 @@ class ProductModification {
   // In product_model.dart, update the ProductModification.fromJson method:
 
   factory ProductModification.fromJson(Map<String, dynamic> json) {
-    // Determine if this is a group modification (from group_modifications)
-    // or a regular modification (from modifications)
-    bool isGroupModification = json.containsKey('dish_modification_id');
+    // Determine if this is a group modification
+    bool isGroupMod = isGroupModification(json);
+
+    // Debug log
+    debugPrint(
+      '🔍 Parsing modification: ${json['name'] ?? json['modificator_name']}, isGroupMod: $isGroupMod',
+    );
 
     // Check if using the old or new format
     if (json.containsKey('modificator_id')) {
@@ -77,7 +82,7 @@ class ProductModification {
         photoUrl: null,
       );
     } else {
-      // New format from group_modifications - these are NOT divided by 100
+      // New format from group_modifications - price should also be divided by 100
       String? photoUrl;
 
       // Handle both photo_large and photo_small fields
@@ -92,9 +97,10 @@ class ProductModification {
       return ProductModification(
         id: json['dish_modification_id']?.toString() ?? '',
         name: json['name']?.toString() ?? '',
+        // IMPORTANT CHANGE: Always divide by 100, regardless of whether it's a group modification
         price: extractModificationPrice(
           json['price'],
-          true, // This is a group modification, do NOT divide by 100
+          false, // Always divide by 100
         ),
         photoUrl: photoUrl,
       );
@@ -123,10 +129,9 @@ class ProductModel {
     int totalPrice =
         price; // Base price is already divided by 100 at this point
 
-    // Add price of selected regular modification - needs division by 100
+    // Add price of selected regular modification
     if (selectedModification != null) {
-      // Check if we need to divide the modification price
-      // For regular modifications, divide by 100
+      // Regular modifications are already divided by 100 during loading
       totalPrice += selectedModification!.price;
     }
 
@@ -164,7 +169,7 @@ class ProductModel {
     // Get image URL using the helper function
     final imageUrl = getImageUrl(json['photo'], json['photo_origin']);
 
-    // Extract price using the helper function
+    // Extract price using the helper function - this already divides by 100
     final price = extractPrice(json['price']);
 
     // Check if the product is out of stock

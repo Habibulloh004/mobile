@@ -61,9 +61,11 @@ String formatPrice(
   num price, {
   String type = 'space',
   bool showCurrency = true,
-  bool subtract = true,
+  bool subtract =
+      false, // Changed default to false since most prices are already normalized
+  String currencySymbol = 'сум',
 }) {
-  // Step 1: Divide the price by 100 for better display
+  // Step 1: Apply division if needed (most prices should already be normalized)
   double formattedPrice = subtract ? price / 100 : price.toDouble();
 
   // Step 2: Format the number with 0 decimal places if it's a whole number, otherwise 2 decimal places
@@ -90,26 +92,113 @@ String formatPrice(
   // Step 5: Combine the formatted integer part, decimal part, and currency
   if (decimalPart.isNotEmpty) {
     return showCurrency
-        ? '$formattedInteger.$decimalPart ${Constants.currencySymbol}'
+        ? '$formattedInteger.$decimalPart $currencySymbol'
         : '$formattedInteger.$decimalPart';
   } else {
     return showCurrency
-        ? '$formattedInteger ${Constants.currencySymbol}'
+        ? '$formattedInteger $currencySymbol'
         : formattedInteger;
   }
 }
 
-// Safe extract price from product JSON
+int parsePrice(dynamic value, {bool divideBy100 = true}) {
+  // Handle null values
+  if (value == null) return 0;
+
+  // Debug log the input value and its type
+  debugPrint('🔢 Parsing price: $value (type: ${value.runtimeType})');
+
+  // Handle numeric values (no division needed)
+  if (value is int) return value;
+  if (value is double) return value.toInt();
+
+  // Handle string values
+  if (value is String) {
+    try {
+      // Clean the string (remove non-numeric chars except decimal point)
+      String cleaned = value.replaceAll(RegExp(r'[^0-9.]'), '');
+
+      if (cleaned.isEmpty) return 0;
+
+      // Parse the string to a numeric value
+      num numericValue;
+      if (cleaned.contains('.')) {
+        numericValue = double.parse(cleaned);
+      } else {
+        numericValue = int.parse(cleaned);
+      }
+
+      // Apply division by 100 if needed (for string prices)
+      if (divideBy100) {
+        debugPrint(
+          '💰 Dividing string price by 100: $numericValue ÷ 100 = ${numericValue / 100}',
+        );
+        return (numericValue / 100).toInt();
+      } else {
+        return numericValue.toInt();
+      }
+    } catch (e) {
+      debugPrint('❌ Error parsing price: $e');
+      return 0;
+    }
+  }
+
+  // For any other type, try converting to string first, then parse
+  try {
+    return parsePrice(value.toString(), divideBy100: divideBy100);
+  } catch (e) {
+    debugPrint('❌ Error parsing price of unknown type: $e');
+    return 0;
+  }
+}
+
 int extractPrice(dynamic priceData) {
+  // Debug the input
+  debugPrint(
+    '📊 Extracting price from: $priceData (type: ${priceData?.runtimeType})',
+  );
+
   if (priceData is Map && priceData.isNotEmpty) {
     // Get the first value from the price map
     var firstPrice = priceData.values.first;
-    return int.tryParse(firstPrice.toString()) ?? 0;
+    debugPrint(
+      '📊 Extracted price from map: $firstPrice (type: ${firstPrice?.runtimeType})',
+    );
+
+    // ALWAYS divide by 100 for consistency with API values
+    if (firstPrice is String) {
+      // Parse string to integer and divide by 100
+      int parsed =
+          int.tryParse(firstPrice.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      int result = parsed ~/ 100;
+      debugPrint(
+        '📊 String price from map: $firstPrice → $parsed → $result (divided by 100)',
+      );
+      return result;
+    } else if (firstPrice is num) {
+      // For numeric values, still divide by 100
+      int result = (firstPrice ~/ 100);
+      debugPrint(
+        '📊 Numeric price from map: $firstPrice → $result (divided by 100)',
+      );
+      return result;
+    }
   } else if (priceData is String) {
-    return int.tryParse(priceData) ?? 0;
-  } else if (priceData is int) {
-    return priceData;
+    // Parse string to integer and divide by 100
+    int parsed = int.tryParse(priceData.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    int result = parsed ~/ 100;
+    debugPrint(
+      '📊 String price: $priceData → $parsed → $result (divided by 100)',
+    );
+    return result;
+  } else if (priceData is int || priceData is double) {
+    // For numeric values, still divide by 100
+    int result = (priceData is double ? priceData.toInt() : priceData) ~/ 100;
+    debugPrint('📊 Numeric price: $priceData → $result (divided by 100)');
+    return result;
   }
+
+  debugPrint('📊 Could not extract price, returning 0');
   return 0;
 }
 

@@ -66,11 +66,29 @@ class ProductModification {
 
     // Check if using the old or new format
     if (json.containsKey('modificator_id')) {
-      // Extract the real price using our helper
+      // IMPORTANT: handle string prices by dividing by 100
+      final dynamic rawPrice = json['modificator_selfprice'];
+      int price = 0;
+
+      if (rawPrice is String) {
+        // Parse string to integer and ALWAYS divide by 100
+        try {
+          int parsedPrice = int.tryParse(rawPrice.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          price = parsedPrice ~/ 100;
+          debugPrint('📊 Modification string price: $rawPrice → $parsedPrice → $price (divided by 100)');
+        } catch (e) {
+          debugPrint('❌ Error parsing modification price: $e');
+        }
+      } else if (rawPrice is num) {
+        // For numeric prices, still divide by 100 for consistency
+        price = (rawPrice ~/ 100);
+        debugPrint('📊 Modification numeric price: $rawPrice → $price (divided by 100)');
+      }
+
       return ProductModification(
         id: json['modificator_id']?.toString() ?? '',
         name: json['modificator_name']?.toString() ?? '',
-        price: extractModificationPrice(json['modificator_selfprice'], false),
+        price: price,
         photoUrl: null,
       );
     } else {
@@ -86,14 +104,29 @@ class ProductModification {
         photoUrl = json['photo_small'];
       }
 
-      // Log the original price before processing for debugging
-      debugPrint('📊 Group mod price before processing: ${json['price']}');
+      // Process price based on type
+      final dynamic rawPrice = json['price'];
+      int price = 0;
 
-      // Extract the real price
+      if (rawPrice is String) {
+        // Parse string to integer and ALWAYS divide by 100
+        try {
+          int parsedPrice = int.tryParse(rawPrice.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          price = parsedPrice ~/ 100;
+          debugPrint('📊 Group mod string price: $rawPrice → $parsedPrice → $price (divided by 100)');
+        } catch (e) {
+          debugPrint('❌ Error parsing group mod price: $e');
+        }
+      } else if (rawPrice is num) {
+        // For numeric prices, still divide by 100 for consistency
+        price = (rawPrice ~/ 100);
+        debugPrint('📊 Group mod numeric price: $rawPrice → $price (divided by 100)');
+      }
+
       return ProductModification(
         id: json['dish_modification_id']?.toString() ?? '',
         name: json['name']?.toString() ?? '',
-        price: extractModificationPrice(json['price'], true),
+        price: price,
         photoUrl: photoUrl,
       );
     }

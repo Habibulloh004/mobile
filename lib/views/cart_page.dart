@@ -341,22 +341,8 @@ class CartPage extends StatelessWidget {
     final quantity = item['quantity'] ?? 1;
     final totalPrice = price * quantity;
 
-    // Get product display name with modification
+    // Get clean product display name
     String displayName = cleanProductName(item['name'] ?? 'Unknown Product');
-
-    // For items with regular modifications or group modifications with a single item,
-    // append the modification name to the product name
-    String modificationDisplayName = "";
-    if (hasRegularModification && modificationName != null) {
-      modificationDisplayName = modificationName;
-    } else if (hasModificationDetails && groupModifications.length == 1) {
-      modificationDisplayName = groupModifications[0]['name'] ?? "";
-    }
-
-    // If we have a modification name, append it to the product name
-    if (modificationDisplayName.isNotEmpty) {
-      displayName = "$displayName (${modificationDisplayName})";
-    }
 
     // Helper method for quantity buttons
     Widget _buildQuantityButton({
@@ -371,6 +357,58 @@ class CartPage extends StatelessWidget {
           child: Icon(icon, size: 16, color: ColorUtils.secondaryColor),
         ),
       );
+    }
+
+    // Helper method to remove a specific modification
+    void _removeModification(String modId) {
+      if (!hasGroupModifications || !hasModificationDetails) return;
+
+      try {
+        // Get the current modifications
+        List<dynamic> currentMods = jsonDecode(item['modification']);
+        List<Map<String, dynamic>> currentModDetails =
+            List<Map<String, dynamic>>.from(item['modification_details']);
+
+        // Filter out the modification to remove
+        currentMods =
+            currentMods
+                .where((mod) => mod['m'].toString() != modId.toString())
+                .toList();
+        currentModDetails =
+            currentModDetails
+                .where((mod) => mod['m'].toString() != modId.toString())
+                .toList();
+
+        // Create updated cart item
+        Map<String, dynamic> updatedItem = Map<String, dynamic>.from(item);
+        updatedItem['modification'] = jsonEncode(currentMods);
+        updatedItem['modification_details'] = currentModDetails;
+
+        // Recalculate price (subtract the price of the removed modification)
+        int modificationPrice = 0;
+        for (var mod in groupModifications) {
+          if (mod['m'].toString() == modId.toString()) {
+            modificationPrice = mod['price'] ?? 0;
+            break;
+          }
+        }
+
+        updatedItem['price'] = (price - modificationPrice);
+
+        // Remove old item and add updated one
+        cartProvider.removeItem(item);
+        if (currentMods.isNotEmpty) {
+          cartProvider.addItem(updatedItem);
+        } else {
+          // If no modifications left, reset to base product
+          updatedItem.remove('modification');
+          updatedItem.remove('modification_details');
+          updatedItem['price'] = updatedItem['base_price'];
+          cartProvider.addItem(updatedItem);
+        }
+      } catch (e) {
+        debugPrint("Error removing modification: $e");
+      }
     }
 
     return Container(
@@ -392,14 +430,12 @@ class CartPage extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Product image
+              // Product image - always use consistent corner radius
               ClipRRect(
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(12),
                   bottomLeft: Radius.circular(
-                    (hasRegularModification || groupModifications.isNotEmpty)
-                        ? 0
-                        : 12,
+                    groupModifications.isEmpty ? 12 : 0,
                   ),
                 ),
                 child: Container(
@@ -425,7 +461,7 @@ class CartPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product name already includes the modification in format "Product (Modification)"
+                      // Product name
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -441,10 +477,9 @@ class CartPage extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          // Variant badge moved to a better position with padding
-                          if ((hasRegularModification ||
-                                  groupModifications.isNotEmpty) &&
-                              modificationDisplayName.isEmpty)
+
+                          // Additions badge for group modifications
+                          if (hasGroupModifications || hasModificationDetails)
                             Padding(
                               padding: EdgeInsets.only(left: 6, top: 2),
                               child: Container(
@@ -453,23 +488,20 @@ class CartPage extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: ColorUtils.accentColor.withOpacity(
-                                    0.1,
-                                  ),
+                                  color: ColorUtils.primaryColor,
                                   borderRadius: BorderRadius.circular(4),
                                   border: Border.all(
-                                    color: ColorUtils.accentColor.withOpacity(
-                                      0.3,
-                                    ),
+                                    color: ColorUtils.secondaryColor
+                                        .withOpacity(0.3),
                                     width: 1,
                                   ),
                                 ),
                                 child: Text(
-                                  'Вариант',
+                                  'Добавки',
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
-                                    color: ColorUtils.accentColor,
+                                    color: ColorUtils.secondaryColor,
                                   ),
                                 ),
                               ),
@@ -609,62 +641,8 @@ class CartPage extends StatelessWidget {
             ],
           ),
 
-          // Regular Modification info section (if available) - only show if not already in product name
-          if (hasRegularModification && modificationDisplayName.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: ColorUtils.primaryColor.withOpacity(0.5),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(12),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.format_size,
-                    size: 16,
-                    color: ColorUtils.secondaryColor.withOpacity(0.7),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      modificationName ?? "",
-                      style: TextStyle(
-                        fontSize: Constants.fontSizeSmall,
-                        fontWeight: FontWeight.bold,
-                        color: ColorUtils.secondaryColor,
-                      ),
-                    ),
-                  ),
-                  // Regular modification price display
-                  if (modificationPrice > 0)
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        '+${formatPrice(modificationPrice)}',
-                        style: TextStyle(
-                          fontSize: Constants.fontSizeSmall,
-                          fontWeight: FontWeight.bold,
-                          color: ColorUtils.accentColor,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
           // Group Modifications info section (if available)
-          // Only show this section for multiple group modifications or if not already shown in product name
-          if (groupModifications.isNotEmpty &&
-              (groupModifications.length > 1 ||
-                  modificationDisplayName.isEmpty))
+          if (groupModifications.isNotEmpty)
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -690,67 +668,70 @@ class CartPage extends StatelessWidget {
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    // Only show modifications that aren't already shown in the product name
+                    // Show ALL group modifications
                     children:
-                        groupModifications
-                            .where(
-                              (mod) =>
-                                  modificationDisplayName.isEmpty ||
-                                  mod["name"] != modificationDisplayName,
-                            )
-                            .map((mod) {
-                              // Display name if available, otherwise show ID
-                              String displayText =
-                                  mod.containsKey("name")
-                                      ? mod["name"]
-                                      : "ID: ${mod["m"]}";
-                              int? price =
-                                  mod.containsKey("price")
-                                      ? mod["price"]
-                                      : null;
+                        groupModifications.map((mod) {
+                          // Display name if available, otherwise show ID
+                          String displayText =
+                              mod.containsKey("name")
+                                  ? mod["name"]
+                                  : "ID: ${mod["m"]}";
+                          int? price =
+                              mod.containsKey("price") ? mod["price"] : null;
+                          String modId = mod["m"].toString();
 
-                              return Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
+                          return Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: ColorUtils.accentColor.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  displayText,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: ColorUtils.secondaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: ColorUtils.accentColor.withOpacity(
-                                      0.3,
+                                // Show price if available
+                                if (price != null && price > 0)
+                                  Padding(
+                                    padding: EdgeInsets.only(left: 4),
+                                    child: Text(
+                                      '+${formatPrice(price)}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: ColorUtils.accentColor,
+                                      ),
+                                    ),
+                                  ),
+                                // Remove modification button
+                                InkWell(
+                                  onTap: () => _removeModification(modId),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: EdgeInsets.only(left: 4),
+                                    child: Icon(
+                                      Icons.close,
+                                      size: 12,
+                                      color: Colors.red[300],
                                     ),
                                   ),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      displayText,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: ColorUtils.secondaryColor,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    // Only show price if it's positive
-                                    if (price != null && price > 0)
-                                      Padding(
-                                        padding: EdgeInsets.only(left: 4),
-                                        child: Text(
-                                          '+${formatPrice(price)}',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: ColorUtils.accentColor,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            })
-                            .toList(),
+                              ],
+                            ),
+                          );
+                        }).toList(),
                   ),
                 ],
               ),

@@ -382,7 +382,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ],
                     ),
 
-                  // Group Modifications (if available) - WITH CHECKBOXES ONLY
+                  // Group Modifications (if available) - ALWAYS USING CHECKBOXES
                   if (product.groupModifications != null &&
                       product.groupModifications!.isNotEmpty)
                     Column(
@@ -413,20 +413,16 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                       top: 12,
                                       bottom: 8,
                                     ),
-                                    child: Row(
-                                      children: [
-                                        Text(
-                                          group.name,
-                                          style: TextStyle(
-                                            fontSize: Constants.fontSizeRegular,
-                                            fontWeight: FontWeight.bold,
-                                            color: ColorUtils.secondaryColor,
-                                          ),
-                                        ),
-                                      ],
+                                    child: Text(
+                                      group.name,
+                                      style: TextStyle(
+                                        fontSize: Constants.fontSizeRegular,
+                                        fontWeight: FontWeight.bold,
+                                        color: ColorUtils.secondaryColor,
+                                      ),
                                     ),
                                   ),
-                                // Always use checkbox style (even for type 1)
+                                // Always use checkbox style for all modification types
                                 Column(
                                   children:
                                       group.modifications.map((mod) {
@@ -456,7 +452,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ],
                     ),
 
-                  // Regular Modifications (if available) - KEEP THE ORIGINAL RADIO BUTTONS
+                  // Regular Modifications (if available) - RADIO BUTTONS
                   if (product.modifications != null &&
                       product.modifications!.isNotEmpty &&
                       (product.groupModifications == null ||
@@ -550,71 +546,52 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
-                                // Check for regular modifications - these are still required
-                                bool hasRequiredSelections = true;
-                                String errorMessage = "";
-
-                                // Check for regular modifications
-                                bool hasRegularModifications =
-                                    (product.modifications != null &&
-                                        product.modifications!.isNotEmpty);
-
-                                if (hasRegularModifications &&
-                                    product.selectedModification == null) {
-                                  hasRequiredSelections = false;
-                                  errorMessage = "Пожалуйста, выберите вариант";
-                                }
-
-                                if (!hasRequiredSelections) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(errorMessage),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                  return;
-                                }
-
                                 // Prepare cart item data
                                 Map<String, dynamic> cartItem = {};
 
-                                // Create selected modifications data with names for display - only create ONCE
+                                // Create selected modifications data with names for display
                                 List<Map<String, dynamic>>
                                 selectedModsWithNames = [];
-                                _selectedGroupModifications.forEach((
-                                  id,
-                                  isSelected,
-                                ) {
-                                  if (isSelected &&
-                                      _modificationDetailsMap.containsKey(id)) {
-                                    int? modId;
-                                    try {
-                                      modId = int.parse(id);
-                                    } catch (e) {
-                                      modId = null;
-                                    }
 
-                                    selectedModsWithNames.add({
-                                      "m": modId ?? id,
-                                      "a": 1,
-                                      "name": _modificationDetailsMap[id]!.name,
-                                      "price":
-                                          _modificationDetailsMap[id]!.price,
-                                    });
-                                  }
-                                });
-
-                                // Handle different scenarios
+                                // Process group modifications
                                 if (product.groupModifications != null &&
                                     product.groupModifications!.isNotEmpty) {
-                                  // Get modifications in required format for API
+                                  // First collect data for selected group modifications with their names
+                                  _selectedGroupModifications.forEach((
+                                    id,
+                                    isSelected,
+                                  ) {
+                                    if (isSelected &&
+                                        _modificationDetailsMap.containsKey(
+                                          id,
+                                        )) {
+                                      int? modId;
+                                      try {
+                                        modId = int.parse(id);
+                                      } catch (e) {
+                                        modId = null;
+                                      }
+
+                                      // Store rich modification info for display - ALWAYS treated as additions
+                                      selectedModsWithNames.add({
+                                        "m": modId ?? id,
+                                        "a": 1,
+                                        "name":
+                                            _modificationDetailsMap[id]!.name,
+                                        "price":
+                                            _modificationDetailsMap[id]!.price,
+                                      });
+                                    }
+                                  });
+
+                                  // Get modifications JSON string for API
                                   String modificationsJson =
                                       getSelectedModificationsJson();
 
-                                  // Create cart item with group modifications
+                                  // Create cart item with clear separation of group modifications
                                   cartItem = {
                                     'product_id': product.id,
-                                    'name': product.name,
+                                    'name': cleanProductName(product.name),
                                     'price': totalPrice,
                                     'base_price': product.price,
                                     'imageUrl': product.imageUrl,
@@ -623,16 +600,30 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                     'modification_details':
                                         selectedModsWithNames,
                                   };
-                                } else if (hasRegularModifications &&
+                                } else if (product.modifications != null &&
+                                    product.modifications!.isNotEmpty &&
                                     product.selectedModification != null) {
                                   // Regular modification - use the existing structure
-                                  cartItem = product.toCartItem();
-                                  cartItem['quantity'] = _quantity;
+                                  cartItem = {
+                                    'product_id': product.id,
+                                    'name': cleanProductName(product.name),
+                                    'modification': {
+                                      'id': product.selectedModification!.id,
+                                      'name':
+                                          product.selectedModification!.name,
+                                      'price':
+                                          product.selectedModification!.price,
+                                    },
+                                    'price': totalPrice,
+                                    'base_price': product.price,
+                                    'imageUrl': product.imageUrl,
+                                    'quantity': _quantity,
+                                  };
                                 } else {
                                   // Simple product without modifications
                                   cartItem = {
                                     'product_id': product.id,
-                                    'name': product.name,
+                                    'name': cleanProductName(product.name),
                                     'price': product.price,
                                     'imageUrl': product.imageUrl,
                                     'quantity': _quantity,
@@ -683,7 +674,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
-  // For group modifications with checkbox style (used for all types now)
+  // For group modifications with checkbox style
   Widget _buildCheckboxModificationTile(
     ProductModification mod,
     bool isSelected,
@@ -770,7 +761,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
-  // Keep the original tile for regular modifications (radio button style)
+  // For regular modifications (radio button style)
   Widget _buildModificationTile(
     ProductModel product,
     ProductModification mod,
@@ -801,7 +792,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         ),
         child: Row(
           children: [
-            // Selected indicator
+            // Radio button style indicator
             if (isSelected)
               Container(
                 width: 18,

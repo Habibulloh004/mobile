@@ -1,5 +1,4 @@
-// lib/providers/cart_provider.dart - Updated with adaptive price handling
-
+// lib/providers/cart_provider.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -180,9 +179,6 @@ class CartProvider with ChangeNotifier {
         newItem['modification_details'] = product['modification_details'];
       }
 
-      // IMPORTANT: Prices are already correctly formatted by ProductModel's effectivePrice
-      // No further processing needed here
-
       _cartItems.add(newItem);
       debugPrint(
         "✅ New item added to cart: ${product['name']} (Qty: $quantity, Price: ${product['price']})",
@@ -257,7 +253,7 @@ class CartProvider with ChangeNotifier {
       int price = 0;
       int quantity = 1;
 
-      // Convert price to int if needed - no division needed as price is already properly processed
+      // Convert price to int if needed
       if (item['price'] is int) {
         price = item['price'] as int;
       } else if (item['price'] is double) {

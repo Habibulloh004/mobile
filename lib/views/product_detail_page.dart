@@ -100,21 +100,23 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     return jsonEncode(result);
   }
 
-  // In product_detail_page.dart, update the calculateTotalPrice method:
+  // Updated calculateTotalPrice method for ProductDetailPage with adaptive price handling
 
-  // Calculate total price including all selected modifications
+  // Function to calculate total price including all selected modifications
   int calculateTotalPrice(ProductModel product) {
-    // Base price is already divided by 100 during product loading
+    // Base price is already properly scaled during product loading
     int totalPrice = product.price;
     debugPrint('💰 Base price: ${product.price}');
 
-    // Add price for regular modifications (already divided by 100 during loading)
+    // Add price for regular modifications
     if (product.selectedModification != null) {
       totalPrice += product.selectedModification!.price;
-      debugPrint('💰 With regular mod: +${product.selectedModification!.price} = $totalPrice');
+      debugPrint(
+        '💰 With regular mod: +${product.selectedModification!.price} = $totalPrice',
+      );
     }
 
-    // Add prices for group modifications (now also divided by 100)
+    // Add prices for group modifications
     int groupModTotal = 0;
     _selectedGroupModifications.forEach((id, isSelected) {
       if (isSelected && _modificationDetailsMap.containsKey(id)) {
@@ -128,6 +130,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     debugPrint('💰 Final total with group mods: $totalPrice');
 
     return totalPrice;
+  }
+
+  // Helper method to display prices in the product detail UI
+  Widget _buildPriceDisplay(int price) {
+    return Text(
+      formatPrice(price), // No additional division
+      style: TextStyle(
+        fontSize: Constants.fontSizeLarge,
+        fontWeight: FontWeight.bold,
+        color: ColorUtils.accentColor,
+      ),
+    );
   }
 
   @override
@@ -344,7 +358,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                       SizedBox(width: 16),
                       Text(
-                        formatPrice(totalPrice, subtract: false),
+                        formatPrice(totalPrice),
                         style: TextStyle(
                           fontSize: Constants.fontSizeLarge,
                           fontWeight: FontWeight.bold,
@@ -784,7 +798,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             // Price
             if (mod.price > 0)
               Text(
-                "+${formatPrice(mod.price, subtract: false)}",
+                "+${formatPrice(mod.price)}",
                 style: TextStyle(
                   color: isSelected ? ColorUtils.accentColor : Colors.grey[600],
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

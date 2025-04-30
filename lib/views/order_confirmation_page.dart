@@ -130,7 +130,7 @@ class OrderConfirmationPage extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                formatPrice(item['price'] * item['quantity']),
+                                formatPrice((item['price'] ?? 0) * (item['quantity'] ?? 1), subtract: false),
                                 style: TextStyle(
                                   fontSize: Constants.fontSizeRegular,
                                   fontWeight: FontWeight.bold,
@@ -157,7 +157,7 @@ class OrderConfirmationPage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          formatPrice(subtotal),
+                          formatPrice(subtotal, subtract: false),
                           style: TextStyle(
                             fontSize: Constants.fontSizeRegular,
                             fontWeight: FontWeight.bold,
@@ -208,7 +208,7 @@ class OrderConfirmationPage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          formatPrice(total),
+                          formatPrice(total, subtract: false),
                           style: TextStyle(
                             fontSize: Constants.fontSizeMedium,
                             fontWeight: FontWeight.bold,

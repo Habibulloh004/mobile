@@ -1,3 +1,5 @@
+// lib/providers/cart_provider.dart - Updated with adaptive price handling
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,7 +12,7 @@ class CartProvider with ChangeNotifier {
 
   // Optional delivery info
   bool _isDelivery = true; // true = delivery, false = pickup
-  int _deliveryFee = 10000; // 10,000 sum
+  int _deliveryFee = 10000; // This value might need adjusting based on your pricing scheme
 
   CartProvider() {
     _loadCartFromCache();
@@ -42,7 +44,14 @@ class CartProvider with ChangeNotifier {
         _cartItems = List<Map<String, dynamic>>.from(cartCache['items'] ?? []);
         _isDelivery = cartCache['isDelivery'] ?? true;
 
+        // Debug log
         debugPrint('✅ Loaded ${_cartItems.length} items from cart cache');
+
+        // Log loaded price values to debug
+        for (var item in _cartItems) {
+          debugPrint('📊 Loaded item: ${item['name']}, price: ${item['price']}');
+        }
+
         notifyListeners();
       }
     } catch (e) {
@@ -57,7 +66,9 @@ class CartProvider with ChangeNotifier {
       final Map<String, dynamic> cartData = {
         'items': _cartItems,
         'isDelivery': _isDelivery,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'timestamp': DateTime
+            .now()
+            .millisecondsSinceEpoch,
       };
 
       await prefs.setString(CART_CACHE_KEY, jsonEncode(cartData));
@@ -68,7 +79,6 @@ class CartProvider with ChangeNotifier {
   }
 
   // Find an item in the cart by product ID and modification data
-  // Updated _findCartItemIndex method to better compare modifications
   int _findCartItemIndex(Map<String, dynamic> product) {
     for (int i = 0; i < _cartItems.length; i++) {
       final item = _cartItems[i];
@@ -90,10 +100,10 @@ class CartProvider with ChangeNotifier {
 
           // Sort both lists to ensure consistent comparison
           productMods.sort(
-            (a, b) => a['m'].toString().compareTo(b['m'].toString()),
+                (a, b) => a['m'].toString().compareTo(b['m'].toString()),
           );
           itemMods.sort(
-            (a, b) => a['m'].toString().compareTo(b['m'].toString()),
+                (a, b) => a['m'].toString().compareTo(b['m'].toString()),
           );
 
           // If the modifications are different, this is a different item
@@ -123,7 +133,7 @@ class CartProvider with ChangeNotifier {
 
       // Case 3: Neither has modifications
       if ((!product.containsKey('modification') ||
-              product['modification'] == null) &&
+          product['modification'] == null) &&
           (!item.containsKey('modification') || item['modification'] == null)) {
         return i;
       }
@@ -132,10 +142,9 @@ class CartProvider with ChangeNotifier {
     return -1; // Item not found
   }
 
-  // In cart_provider.dart, update the addItem method to ensure prices are correctly handled
-
   void addItem(Map<String, dynamic> product) {
-    debugPrint("📌 Adding item to cart: ${product['name']}");
+    debugPrint(
+        "📌 Adding item to cart: ${product['name']}, price: ${product['price']}");
 
     // Find this exact product in the cart
     final existingIndex = _findCartItemIndex(product);
@@ -157,9 +166,9 @@ class CartProvider with ChangeNotifier {
     } else {
       // If product is new, add it with specified quantity or default to 1
       int quantity =
-          (product.containsKey('quantity') && product['quantity'] > 0)
-              ? product['quantity']
-              : 1;
+      (product.containsKey('quantity') && product['quantity'] > 0)
+          ? product['quantity']
+          : 1;
 
       // Make a deep copy to ensure we don't modify the original product
       Map<String, dynamic> newItem = {...product, 'quantity': quantity};
@@ -169,12 +178,12 @@ class CartProvider with ChangeNotifier {
         newItem['modification_details'] = product['modification_details'];
       }
 
-      // IMPORTANT: Make sure the prices are correctly formatted
-      // All prices are already divided by 100 at this point, no need for additional division
+      // IMPORTANT: Use adaptive price handling - prices are already correctly formatted
+      // by the ProductModel's effectivePrice and extraction methods
 
       _cartItems.add(newItem);
       debugPrint(
-        "✅ New item added to cart: ${product['name']} (Qty: $quantity)",
+        "✅ New item added to cart: ${product['name']} (Qty: $quantity, Price: ${product['price']})",
       );
     }
 
@@ -196,12 +205,11 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  void updateQuantity(
-    int productId,
-    int change, {
-    String? modificationId,
-    String? groupModifications,
-  }) {
+  void updateQuantity(int productId,
+      int change, {
+        String? modificationId,
+        String? groupModifications,
+      }) {
     try {
       // Create a dummy product to use _findCartItemIndex
       final Map<String, dynamic> dummyProduct = {'product_id': productId};
@@ -239,7 +247,6 @@ class CartProvider with ChangeNotifier {
   }
 
   // Get total price of items in cart
-  // Replace the subtotal getter in CartProvider:
   int get subtotal {
     int total = 0;
     for (var item in _cartItems) {
@@ -275,7 +282,8 @@ class CartProvider with ChangeNotifier {
 
       total += price * quantity;
       debugPrint(
-        '🧮 Cart item: ${item['name']} - $price × $quantity = ${price * quantity}',
+        '🧮 Cart item: ${item['name']} - $price × $quantity = ${price *
+            quantity}',
       );
     }
 
@@ -320,6 +328,12 @@ class CartProvider with ChangeNotifier {
   // Add a product model directly to cart
   void addProductModel(ProductModel product) {
     final cartItem = product.toCartItem();
+
+    // Debug log the price before adding to cart
+    debugPrint("📊 Adding product model to cart: ${product
+        .name}, original price: ${product.price}, effective price: ${product
+        .effectivePrice}");
+
     addItem(cartItem);
   }
 }

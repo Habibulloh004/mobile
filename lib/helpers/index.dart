@@ -1,6 +1,3 @@
-// lib/helpers/index.dart
-// Updated helper functions for price handling
-
 import 'package:flutter/cupertino.dart';
 
 import '../constant/index.dart';
@@ -31,31 +28,6 @@ int _parseToInt(dynamic value) {
   }
 }
 
-// Function to extract and properly format product price
-int extractPrice(dynamic rawPrice) {
-  // If price is null or empty, return 0
-  if (rawPrice == null || rawPrice.toString().isEmpty) {
-    return 0;
-  }
-
-  // Parse to int
-  int parsedPrice = _parseToInt(rawPrice);
-
-  // IMPORTANT: Divide base product prices by 100
-  return parsedPrice ~/ 100;
-}
-
-bool isGroupModification(Map<String, dynamic> json) {
-  // Check for dish_modification_id (indicates group mod)
-  if (json.containsKey('dish_modification_id')) return true;
-
-  // Check if price is a number type (group mods have number prices)
-  if (json.containsKey('price') && json['price'] is num) return true;
-
-  return false;
-}
-
-// Function to extract and properly format modification price
 int extractModificationPrice(dynamic rawPrice, bool isGroupModification) {
   // If price is null or empty, return 0
   if (rawPrice == null || rawPrice.toString().isEmpty) {
@@ -71,35 +43,74 @@ int extractModificationPrice(dynamic rawPrice, bool isGroupModification) {
   );
 
   // IMPORTANT CHANGE: Always divide all prices by 100, regardless of type
-  return parsedPrice ~/ 100;
+  return parsedPrice;
 }
 
-/**
- * Formats a price value for display
- *
- * @param dynamic price - The price value (can be int, double, or String)
- * @param bool subtract - Whether to divide the price by 100 (defaults to true)
- * @return String - The formatted price string
- */
+bool isGroupModification(Map<String, dynamic> json) {
+  // Check for dish_modification_id (indicates group mod)
+  if (json.containsKey('dish_modification_id')) return true;
 
-String formatPrice(dynamic price, {bool subtract = true}) {
-  // Handle null values
-  if (price == null) {
-    return '0 ${Constants.currencySymbol}';
+  // Check if price is a number type (group mods have number prices)
+  if (json.containsKey('price') && json['price'] is num) return true;
+
+  return false;
+}
+
+// Format price from API (in cents/minor units) to readable format
+String formatPrice(
+  num price, {
+  String type = 'space',
+  bool showCurrency = true,
+  bool subtract = true,
+}) {
+  // Step 1: Divide the price by 100 for better display
+  double formattedPrice = subtract ? price / 100 : price.toDouble();
+
+  // Step 2: Format the number with 0 decimal places if it's a whole number, otherwise 2 decimal places
+  String priceString =
+      formattedPrice % 1 == 0
+          ? formattedPrice.toInt().toString()
+          : formattedPrice.toStringAsFixed(2);
+
+  // Step 3: Split into integer and decimal parts
+  List<String> parts = priceString.split('.');
+  String integerPart = parts[0];
+  String decimalPart = parts.length > 1 ? parts[1] : "";
+
+  // Step 4: Add thousand separators to the integer part
+  String separator = type == 'space' ? ' ' : ',';
+  String formattedInteger = '';
+  for (int i = 0; i < integerPart.length; i++) {
+    if (i > 0 && (integerPart.length - i) % 3 == 0) {
+      formattedInteger += separator;
+    }
+    formattedInteger += integerPart[i];
   }
 
-  // Parse to numeric value
-  int numericPrice = _parseToInt(price);
+  // Step 5: Combine the formatted integer part, decimal part, and currency
+  if (decimalPart.isNotEmpty) {
+    return showCurrency
+        ? '$formattedInteger.$decimalPart ${Constants.currencySymbol}'
+        : '$formattedInteger.$decimalPart';
+  } else {
+    return showCurrency
+        ? '$formattedInteger ${Constants.currencySymbol}'
+        : formattedInteger;
+  }
+}
 
-  // Debug log
-  debugPrint('💰 Formatting price: $price → $numericPrice, subtract: $subtract');
-
-  // IMPORTANT CHANGE: If subtract is false, don't perform any division (prices are already divided)
-  // If subtract is true (default), divide by 100 for backward compatibility
-  final formattedValue = subtract ? numericPrice ~/ 100 : numericPrice;
-
-  // Return formatted with currency
-  return '${formattedValue.toString()} ${Constants.currencySymbol}';
+// Safe extract price from product JSON
+int extractPrice(dynamic priceData) {
+  if (priceData is Map && priceData.isNotEmpty) {
+    // Get the first value from the price map
+    var firstPrice = priceData.values.first;
+    return int.tryParse(firstPrice.toString()) ?? 0;
+  } else if (priceData is String) {
+    return int.tryParse(priceData) ?? 0;
+  } else if (priceData is int) {
+    return priceData;
+  }
+  return 0;
 }
 
 // Get image URL from product

@@ -192,7 +192,7 @@ class CartPage extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    formatPrice(cartProvider.subtotal, subtract: false),
+                    formatPrice(cartProvider.subtotal),
                     style: TextStyle(
                       fontSize: Constants.fontSizeRegular,
                       fontWeight: FontWeight.bold,
@@ -217,7 +217,7 @@ class CartPage extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        formatPrice(cartProvider.deliveryFee, subtract: false),
+                        formatPrice(cartProvider.deliveryFee),
                         style: TextStyle(
                           fontSize: Constants.fontSizeRegular,
                           fontWeight: FontWeight.bold,
@@ -243,7 +243,7 @@ class CartPage extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      formatPrice(cartProvider.total, subtract: false),
+                      formatPrice(cartProvider.total),
                       style: TextStyle(
                         fontSize: Constants.fontSizeMedium,
                         fontWeight: FontWeight.bold,
@@ -466,13 +466,13 @@ class CartPage extends StatelessWidget {
                           ),
                           children: [
                             TextSpan(
-                              text: formatPrice(totalPrice, subtract: false),
+                              text: formatPrice(totalPrice),
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             if (quantity > 1)
                               TextSpan(
                                 text:
-                                    '  (${formatPrice(price, subtract: false)} × $quantity)',
+                                    '  (${formatPrice(price)} × $quantity)',
                                 style: TextStyle(
                                   fontSize: Constants.fontSizeSmall,
                                   color: Colors.grey[600],
@@ -629,7 +629,7 @@ class CartPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        '+${formatPrice(modificationPrice, subtract: false)}',
+                        '+${formatPrice(modificationPrice)}',
                         // These prices are already properly divided during parsing
                         style: TextStyle(
                           fontSize: Constants.fontSizeSmall,
@@ -643,7 +643,7 @@ class CartPage extends StatelessWidget {
                     Padding(
                       padding: EdgeInsets.only(left: 4),
                       child: Text(
-                        '+${formatPrice(price, subtract: false)}',
+                        '+${formatPrice(price)}',
                         // Group mod prices are already in correct format, don't divide again
                         style: TextStyle(
                           fontSize: 10,
@@ -719,7 +719,7 @@ class CartPage extends StatelessWidget {
                                   Padding(
                                     padding: EdgeInsets.only(left: 4),
                                     child: Text(
-                                      '+${formatPrice(price, subtract: false)}',
+                                      '+${formatPrice(price)}',
                                       style: TextStyle(
                                         fontSize: 10,
                                         color: ColorUtils.accentColor,

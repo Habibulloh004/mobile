@@ -1,4 +1,4 @@
-// Update your order_model.dart file with these class definitions to match how they're used in API service
+// lib/models/order_model.dart - Updated for consistent price handling
 
 class OrderModel {
   final String id; // Changed from int to String to match API usage
@@ -29,9 +29,10 @@ class OrderModel {
     // Parse items
     List<OrderItem> orderItems = [];
     if (json['items'] != null) {
-      orderItems = (json['items'] as List)
-          .map((item) => OrderItem.fromJson(item))
-          .toList();
+      orderItems =
+          (json['items'] as List)
+              .map((item) => OrderItem.fromJson(item))
+              .toList();
     }
 
     // Convert values to int
@@ -54,6 +55,7 @@ class OrderModel {
   }
 
   // Helper method to parse numeric values to int
+  // NOTE: No division by 100 here as we assume order API returns correctly formatted prices
   static int _parseIntValue(dynamic value) {
     if (value == null) return 0;
 
@@ -87,11 +89,13 @@ class OrderItem {
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     // Convert values to int to maintain consistent types
+    // NOTE: No division by 100 here as we assume order API returns correctly formatted prices
     int price = _parseIntValue(json['price']);
     int quantity = _parseIntValue(json['quantity']);
 
     return OrderItem(
-      id: json['product_id']?.toString() ?? '', // Parse product_id as id
+      id: json['product_id']?.toString() ?? '',
+      // Parse product_id as id
       name: json['name']?.toString() ?? '',
       price: price,
       quantity: quantity,

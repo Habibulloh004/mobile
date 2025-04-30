@@ -1,4 +1,4 @@
-// lib/models/product_model.dart
+// lib/models/product_model.dart - Updated with correct price extraction
 
 import 'package:flutter/foundation.dart';
 import 'package:poster_app/helpers/index.dart';
@@ -6,9 +6,9 @@ import 'package:poster_app/helpers/index.dart';
 class GroupModification {
   final int id;
   final String name;
-  final int minQuantity; // Will be set to 0 to make selection optional
+  final int minQuantity;
   final int maxQuantity;
-  final int type; // Will always be treated as type 2 (checkbox) in the UI
+  final int type;
   final List<ProductModification> modifications;
 
   GroupModification({
@@ -29,9 +29,6 @@ class GroupModification {
               .toList();
     }
 
-    // Note: We're keeping the original values from JSON, but in the UI
-    // we'll ignore minQuantity to make selection optional and
-    // treat all types as checkbox (type 2)
     return GroupModification(
       id:
           int.tryParse(json['dish_modification_group_id']?.toString() ?? '0') ??
@@ -58,8 +55,6 @@ class ProductModification {
     this.photoUrl,
   });
 
-  // In product_model.dart, update the ProductModification.fromJson method:
-
   factory ProductModification.fromJson(Map<String, dynamic> json) {
     // Determine if this is a group modification
     bool isGroupMod = isGroupModification(json);
@@ -71,18 +66,15 @@ class ProductModification {
 
     // Check if using the old or new format
     if (json.containsKey('modificator_id')) {
-      // Old format - these are regular modifications (should be divided by 100)
+      // Extract the real price using our helper
       return ProductModification(
         id: json['modificator_id']?.toString() ?? '',
         name: json['modificator_name']?.toString() ?? '',
-        price: extractModificationPrice(
-          json['modificator_selfprice'],
-          false, // Not a group modification, divide by 100
-        ),
+        price: extractModificationPrice(json['modificator_selfprice'], false),
         photoUrl: null,
       );
     } else {
-      // New format from group_modifications - price should also be divided by 100
+      // New format from group_modifications
       String? photoUrl;
 
       // Handle both photo_large and photo_small fields
@@ -94,14 +86,14 @@ class ProductModification {
         photoUrl = json['photo_small'];
       }
 
+      // Log the original price before processing for debugging
+      debugPrint('📊 Group mod price before processing: ${json['price']}');
+
+      // Extract the real price
       return ProductModification(
         id: json['dish_modification_id']?.toString() ?? '',
         name: json['name']?.toString() ?? '',
-        // IMPORTANT CHANGE: Always divide by 100, regardless of whether it's a group modification
-        price: extractModificationPrice(
-          json['price'],
-          false, // Always divide by 100
-        ),
+        price: extractModificationPrice(json['price'], true),
         photoUrl: photoUrl,
       );
     }
@@ -115,9 +107,8 @@ class ProductModel {
   final String imageUrl;
   final String description;
   int quantity;
-  final List<ProductModification>?
-  modifications; // Kept for backward compatibility
-  final List<GroupModification>? groupModifications; // Added for new format
+  final List<ProductModification>? modifications;
+  final List<GroupModification>? groupModifications;
   final bool isAvailable;
   ProductModification? selectedModification;
 
@@ -126,13 +117,14 @@ class ProductModel {
 
   // Effective price that accounts for selected modification
   int get effectivePrice {
-    int totalPrice =
-        price; // Base price is already divided by 100 at this point
+    int totalPrice = price;
 
-    // Add price of selected regular modification
+    // Add price for regular modifications
     if (selectedModification != null) {
-      // Regular modifications are already divided by 100 during loading
       totalPrice += selectedModification!.price;
+      debugPrint(
+        '💰 With regular mod: +${selectedModification!.price} = $totalPrice',
+      );
     }
 
     return totalPrice;
@@ -169,8 +161,14 @@ class ProductModel {
     // Get image URL using the helper function
     final imageUrl = getImageUrl(json['photo'], json['photo_origin']);
 
-    // Extract price using the helper function - this already divides by 100
+    // Log the original price before extraction for debugging
+    debugPrint('📊 Product price before extraction: ${json['price']}');
+
+    // Extract price using the updated helper function
     final price = extractPrice(json['price']);
+
+    // Log the extracted price
+    debugPrint('📊 Product price after extraction: $price');
 
     // Check if the product is out of stock
     final bool isAvailable =
@@ -223,9 +221,7 @@ class ProductModel {
       'product_id': id,
       'name': name,
       'price': effectivePrice,
-      // Use the effective price that includes modification
       'base_price': price,
-      // Store the original base price
       'imageUrl': imageUrl,
       'quantity': quantity,
       'isAvailable': isAvailable,

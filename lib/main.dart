@@ -5,7 +5,8 @@ import 'package:poster_app/providers/cart_provider.dart';
 import 'package:poster_app/providers/category_provider.dart';
 import 'package:poster_app/providers/product_provider.dart';
 import 'package:poster_app/providers/search_provider.dart';
-import 'package:poster_app/providers/banner_provider.dart'; // Add this import
+import 'package:poster_app/providers/banner_provider.dart';
+import 'package:poster_app/providers/spot_provider.dart'; // Add this import
 import 'package:poster_app/views/main_page.dart';
 import 'package:poster_app/core/api_service.dart';
 import 'package:poster_app/utils/color_utils.dart';
@@ -29,7 +30,6 @@ void main() async {
     ),
   );
 
-  final CartProvider cartProvider = CartProvider();
   final ApiService apiService = ApiService();
 
   // Prefetch admin data if possible
@@ -40,6 +40,7 @@ void main() async {
     // Continue app initialization even if initial fetch fails
   }
 
+  final CartProvider cartProvider = CartProvider(apiService: apiService);
   final categoryProvider = CategoryProvider(apiService);
   final productProvider = ProductProvider(apiService);
   final searchProvider = SearchProvider(
@@ -47,7 +48,8 @@ void main() async {
     productProvider,
     apiService,
   );
-  final bannerProvider = BannerProvider(apiService); // Add this line
+  final bannerProvider = BannerProvider(apiService);
+  final spotProvider = SpotProvider(apiService);
 
   // Start loading data in background
   categoryProvider.loadCategories().catchError(
@@ -62,7 +64,8 @@ void main() async {
         ChangeNotifierProvider.value(value: productProvider),
         ChangeNotifierProvider.value(value: cartProvider),
         ChangeNotifierProvider.value(value: searchProvider),
-        ChangeNotifierProvider.value(value: bannerProvider), // Add this line
+        ChangeNotifierProvider.value(value: bannerProvider),
+        ChangeNotifierProvider.value(value: spotProvider), // Add this line
       ],
       child: MyApp(),
     ),

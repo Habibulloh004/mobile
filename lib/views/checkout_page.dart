@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/cart_provider.dart';
+import '../providers/spot_provider.dart';
+import '../models/spot_model.dart';
 import '../utils/color_utils.dart';
 import '../constant/index.dart';
 import '../helpers/index.dart';
@@ -22,11 +24,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String _userName = '';
   String _userPhone = '';
   bool _isLoggedIn = false;
+  SpotModel? _selectedSpot;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+
+    // Initialize spot provider if takeaway is selected
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Load spots if takeaway is selected
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      if (!cartProvider.isDelivery) {
+        _loadSpots();
+      }
+    });
+  }
+
+  // Load spots data
+  void _loadSpots() {
+    final spotProvider = Provider.of<SpotProvider>(context, listen: false);
+    spotProvider.loadSpots();
   }
 
   Future<void> _loadUserData() async {
@@ -55,9 +73,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     super.dispose();
   }
 
-  // Submit order
-  // In checkout_page.dart, update the _submitOrder method to use int values
-
   Future<void> _submitOrder() async {
     if (!_validateForm()) {
       return;
@@ -69,11 +84,46 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     try {
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      // We don't need to do anything special here since cartProvider.deliveryFee
+      // now returns the current dynamic value
+
+      // Get spot information if takeaway is selected
+      String? spotId;
+      String? spotName;
+      if (!cartProvider.isDelivery) {
+        // If takeaway, check if spot is selected
+        if (_selectedSpot == null) {
+          final spotProvider = Provider.of<SpotProvider>(
+            context,
+            listen: false,
+          );
+          _selectedSpot = spotProvider.selectedSpot;
+        }
+
+        if (_selectedSpot != null) {
+          spotId = _selectedSpot!.id;
+          spotName = _selectedSpot!.name;
+        } else {
+          // Show error if no spot is selected for takeaway
+          setState(() {
+            _isLoading = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Пожалуйста, выберите точку самовывоза'),
+              backgroundColor: Colors.red,
+            ),
+          );
+
+          return;
+        }
+      }
 
       // Simulate a network request
       await Future.delayed(Duration(seconds: 2));
 
-      // Order was successful, navigate to confirmation
+      // Order was successful, navigate to confirmation with current delivery fee
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -82,14 +132,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 orderId: DateTime.now().millisecondsSinceEpoch % 1000,
                 items: cartProvider.cartItems,
                 total: cartProvider.total,
-                // Now returns int
                 subtotal: cartProvider.subtotal,
-                // Now returns int
                 deliveryFee: cartProvider.deliveryFee,
-                // Now returns int
-                address: _addressController.text,
+                // This is now dynamic
+                address:
+                    cartProvider.isDelivery
+                        ? _addressController.text
+                        : _selectedSpot?.address ?? '',
                 isDelivery: cartProvider.isDelivery,
                 paymentMethod: _paymentMethod,
+                spotId: spotId,
+                spotName: spotName,
               ),
         ),
       );
@@ -123,6 +176,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return false;
     }
 
+    // If takeaway is selected, spot is required
+    if (!cartProvider.isDelivery) {
+      if (_selectedSpot == null) {
+        // Try to get selected spot from provider
+        final spotProvider = Provider.of<SpotProvider>(context, listen: false);
+        _selectedSpot = spotProvider.selectedSpot;
+      }
+
+      if (_selectedSpot == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Пожалуйста, выберите точку самовывоза'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+    }
+
     // Phone is always required
     if (_phoneController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,6 +207,124 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     return true;
+  }
+
+  // Widget to display spot selection
+  Widget _buildSpotSelection() {
+    return Consumer<SpotProvider>(
+      builder: (context, spotProvider, child) {
+        if (spotProvider.isLoading) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20.0),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  ColorUtils.accentColor,
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (spotProvider.hasError) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ошибка загрузки точек самовывоза',
+                style: TextStyle(color: ColorUtils.errorColor),
+              ),
+              SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () => spotProvider.refreshSpots(),
+                child: Text('Повторить'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ColorUtils.accentColor,
+                ),
+              ),
+            ],
+          );
+        }
+
+        if (spotProvider.spots.isEmpty) {
+          return Text(
+            'Нет доступных точек самовывоза',
+            style: TextStyle(
+              fontSize: Constants.fontSizeRegular,
+              color: Colors.grey[700],
+            ),
+          );
+        }
+
+        // Get selected spot from provider if not already selected
+        if (_selectedSpot == null && spotProvider.selectedSpot != null) {
+          _selectedSpot = spotProvider.selectedSpot;
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Выберите точку самовывоза',
+              style: TextStyle(
+                fontSize: Constants.fontSizeMedium,
+                fontWeight: FontWeight.bold,
+                color: ColorUtils.secondaryColor,
+              ),
+            ),
+            SizedBox(height: 8),
+            Container(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                itemCount: spotProvider.spots.length,
+                itemBuilder: (context, index) {
+                  final spot = spotProvider.spots[index];
+                  final isSelected = _selectedSpot?.id == spot.id;
+
+                  return RadioListTile<SpotModel>(
+                    title: Text(
+                      spot.name,
+                      style: TextStyle(
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: ColorUtils.secondaryColor,
+                      ),
+                    ),
+                    subtitle: Text(
+                      spot.address,
+                      style: TextStyle(
+                        fontSize: Constants.fontSizeSmall,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    value: spot,
+                    groupValue: _selectedSpot,
+                    onChanged: (SpotModel? value) {
+                      setState(() {
+                        _selectedSpot = value;
+                      });
+                      spotProvider.setSelectedSpot(value);
+                    },
+                    activeColor: ColorUtils.accentColor,
+                    dense: false,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -234,6 +424,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Widget _buildCheckoutForm(CartProvider cartProvider) {
+    // When delivery type changes, load spots if needed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!cartProvider.isDelivery) {
+        final spotProvider = Provider.of<SpotProvider>(context, listen: false);
+        spotProvider.loadSpots();
+      }
+    });
+
     return SingleChildScrollView(
       child: Padding(
         padding: EdgeInsets.all(16),
@@ -373,6 +571,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
               ),
               SizedBox(height: 24),
+            ] else ...[
+              // Spot selection for takeaway
+              SizedBox(height: 8),
+              _buildSpotSelection(),
+              SizedBox(height: 24),
             ],
 
             // Payment method
@@ -453,7 +656,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
                     color: ColorUtils.accentColor,
-                    // <-- accent color when not focused
                     width: 1,
                   ),
                 ),
@@ -461,7 +663,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
                     color: ColorUtils.accentColor,
-                    // <-- accent color when focused
                     width: 2,
                   ),
                 ),

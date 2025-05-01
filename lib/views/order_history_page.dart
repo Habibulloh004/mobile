@@ -250,21 +250,38 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                       Icon(
                         order.deliveryType == 'delivery'
                             ? Icons.delivery_dining
-                            : Icons.shopping_bag,
+                            : Icons.storefront,
                         color: Colors.grey[600],
                         size: 18,
                       ),
                       SizedBox(width: 8),
-                      Text(
-                        order.deliveryType == 'delivery'
-                            ? 'Доставка'
-                            : 'На вынос',
-                        style: TextStyle(
-                          fontSize: Constants.fontSizeRegular,
-                          color: Colors.grey[600],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              order.deliveryType == 'delivery'
+                                  ? 'Доставка'
+                                  : 'Самовывоз',
+                              style: TextStyle(
+                                fontSize: Constants.fontSizeRegular,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            // Show spot name for pickup orders
+                            if (order.deliveryType != 'delivery' &&
+                                order.spotName != null)
+                              Text(
+                                order.spotName!,
+                                style: TextStyle(
+                                  fontSize: Constants.fontSizeSmall,
+                                  fontWeight: FontWeight.bold,
+                                  color: ColorUtils.accentColor,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                      Spacer(),
                       Text(
                         formatPrice(order.total),
                         style: TextStyle(

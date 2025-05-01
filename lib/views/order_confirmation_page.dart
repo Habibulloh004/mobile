@@ -7,12 +7,14 @@ import 'main_page.dart';
 class OrderConfirmationPage extends StatelessWidget {
   final int orderId;
   final List<Map<String, dynamic>> items;
-  final int total; // Changed from double to int
-  final int subtotal; // Changed from double to int
-  final int deliveryFee; // Changed from double to int
+  final int total;
+  final int subtotal;
+  final int deliveryFee;
   final String address;
   final bool isDelivery;
   final String paymentMethod;
+  final String? spotId;
+  final String? spotName;
 
   const OrderConfirmationPage({
     Key? key,
@@ -24,6 +26,8 @@ class OrderConfirmationPage extends StatelessWidget {
     required this.address,
     required this.isDelivery,
     required this.paymentMethod,
+    this.spotId,
+    this.spotName,
   }) : super(key: key);
 
   @override
@@ -130,7 +134,11 @@ class OrderConfirmationPage extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                formatPrice((item['price'] ?? 0) * (item['quantity'] ?? 1), subtract: false),
+                                formatPrice(
+                                  (item['price'] ?? 0) *
+                                      (item['quantity'] ?? 1),
+                                  subtract: false,
+                                ),
                                 style: TextStyle(
                                   fontSize: Constants.fontSizeRegular,
                                   fontWeight: FontWeight.bold,
@@ -223,8 +231,8 @@ class OrderConfirmationPage extends StatelessWidget {
 
               SizedBox(height: 24),
 
-              // Delivery info (if applicable)
-              if (isDelivery && address.isNotEmpty)
+              // Delivery/Pickup info
+              if (address.isNotEmpty)
                 Container(
                   width: double.infinity,
                   padding: EdgeInsets.all(16),
@@ -236,7 +244,7 @@ class OrderConfirmationPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Адрес доставки',
+                        isDelivery ? 'Адрес доставки' : 'Адрес самовывоза',
                         style: TextStyle(
                           fontSize: Constants.fontSizeMedium,
                           fontWeight: FontWeight.bold,
@@ -247,7 +255,7 @@ class OrderConfirmationPage extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.location_on,
+                            isDelivery ? Icons.location_on : Icons.store,
                             color: Colors.grey[600],
                             size: 20,
                           ),
@@ -263,11 +271,33 @@ class OrderConfirmationPage extends StatelessWidget {
                           ),
                         ],
                       ),
+                      // Show spot name for takeaway orders
+                      if (!isDelivery && spotName != null) ...[
+                        SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.storefront,
+                              color: Colors.grey[600],
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Точка: $spotName',
+                              style: TextStyle(
+                                fontSize: Constants.fontSizeRegular,
+                                fontWeight: FontWeight.bold,
+                                color: ColorUtils.secondaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
 
-              if (isDelivery && address.isNotEmpty) SizedBox(height: 24),
+              if (address.isNotEmpty) SizedBox(height: 24),
 
               // Payment method
               Container(

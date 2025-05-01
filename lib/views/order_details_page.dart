@@ -269,22 +269,32 @@ class OrderDetailsPage extends StatelessWidget {
                       ],
                     ),
 
-                    if (order.deliveryType == 'delivery' &&
-                        order.deliveryFee > 0)
+                    if (order.deliveryType != 'delivery' &&
+                        order.spotName != null)
                       Padding(
                         padding: EdgeInsets.only(top: 8),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Доставка',
-                              style: TextStyle(
-                                fontSize: Constants.fontSizeRegular,
-                                color: ColorUtils.secondaryColor,
-                              ),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.storefront,
+                                  size: 16,
+                                  color: Colors.grey[600],
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Точка самовывоза',
+                                  style: TextStyle(
+                                    fontSize: Constants.fontSizeRegular,
+                                    color: ColorUtils.secondaryColor,
+                                  ),
+                                ),
+                              ],
                             ),
                             Text(
-                              formatPrice(order.deliveryFee.toDouble()),
+                              order.spotName ?? '',
                               style: TextStyle(
                                 fontSize: Constants.fontSizeRegular,
                                 fontWeight: FontWeight.bold,

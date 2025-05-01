@@ -11,6 +11,8 @@ class OrderModel {
   final int total;
   final String? address;
   final String? comment;
+  final String? spotId;
+  final String? spotName;
 
   OrderModel({
     required this.id,
@@ -23,6 +25,8 @@ class OrderModel {
     required this.total,
     this.address,
     this.comment,
+    this.spotId,
+    this.spotName,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -51,6 +55,8 @@ class OrderModel {
       total: total,
       address: json['address']?.toString(),
       comment: json['comment']?.toString(),
+      spotId: json['spot_id']?.toString(),
+      spotName: json['spot_name']?.toString(),
     );
   }
 

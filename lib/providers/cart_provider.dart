@@ -4,18 +4,23 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../helpers/index.dart';
 import '../models/product_model.dart';
+import '../core/api_service.dart';
 
 class CartProvider with ChangeNotifier {
   List<Map<String, dynamic>> _cartItems = [];
   static const String CART_CACHE_KEY = 'cart_items';
 
-  // Optional delivery info
+  // Delivery info
   bool _isDelivery = true; // true = delivery, false = pickup
-  int _deliveryFee =
-      10000; // This value might need adjusting based on your pricing scheme
+  int _deliveryFee = 0; // Default to 0, will be updated from admin data
+  bool _isDeliveryFeeLoaded = false;
 
-  CartProvider() {
+  final ApiService _apiService;
+
+  CartProvider({ApiService? apiService})
+    : _apiService = apiService ?? ApiService() {
     _loadCartFromCache();
+    _loadDeliveryFee();
   }
 
   // Getters
@@ -24,6 +29,21 @@ class CartProvider with ChangeNotifier {
   bool get isDelivery => _isDelivery;
 
   int get deliveryFee => _isDelivery ? _deliveryFee : 0;
+
+  // Load delivery fee from admin data
+  Future<void> _loadDeliveryFee() async {
+    if (_isDeliveryFeeLoaded) return;
+
+    try {
+      _deliveryFee = await _apiService.getDeliveryFee();
+      debugPrint('✅ Loaded delivery fee: $_deliveryFee');
+      _isDeliveryFeeLoaded = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error loading delivery fee: $e');
+      // Keep using default value if there's an error
+    }
+  }
 
   // Set delivery method
   void setDeliveryMethod(bool isDelivery) {

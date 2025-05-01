@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:poster_app/providers/spot_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 import '../utils/color_utils.dart';
@@ -112,7 +113,15 @@ class CartPage extends StatelessWidget {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => cartProvider.setDeliveryMethod(true),
+                  onPressed: () {
+                    if (!cartProvider.isDelivery) {
+                      Provider.of<SpotProvider>(
+                        context,
+                        listen: false,
+                      ).resetSelection();
+                      cartProvider.setDeliveryMethod(true);
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
                         cartProvider.isDelivery
@@ -131,7 +140,15 @@ class CartPage extends StatelessWidget {
               SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => cartProvider.setDeliveryMethod(false),
+                  onPressed: () {
+                    if (cartProvider.isDelivery) {
+                      Provider.of<SpotProvider>(
+                        context,
+                        listen: false,
+                      ).loadSpots();
+                      cartProvider.setDeliveryMethod(false);
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
                         !cartProvider.isDelivery

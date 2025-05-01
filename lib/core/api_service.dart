@@ -5,12 +5,15 @@ import '../models/category_model.dart';
 import '../models/product_model.dart';
 import '../models/order_model.dart';
 import '../models/banner_model.dart';
+import '../models/spot_model.dart';
 import '../constant/index.dart';
+import '../models/admin_model.dart';
 import 'package:flutter/foundation.dart';
 
 class ApiService {
   final Dio _dio = Dio();
   String? _systemToken;
+  AdminModel? _adminData;
 
   // Cache keys
   static const String ADMIN_CACHE_KEY = 'admin_data';
@@ -19,15 +22,17 @@ class ApiService {
   static const String USER_CACHE_KEY = 'user_data';
   static const String ORDERS_CACHE_KEY = 'orders_data';
   static const String BANNER_CACHE_KEY = 'banner_data';
+  static const String SPOTS_CACHE_KEY = 'spots_data';
 
   // Cache durations in milliseconds
-  static const int ADMIN_CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 1 month
-  static const int CATEGORIES_CACHE_DURATION = 0;
-      // 3 * 60 * 60 * 1000; // 3 hours
-  static const int PRODUCTS_CACHE_DURATION = 0;
-      // 1 * 60 * 60 * 1000; // 1 hour
+  static const int CATEGORIES_CACHE_DURATION = 3 * 60 * 60 * 1000; // 3 hours
+  static const int PRODUCTS_CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour
   static const int ORDERS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 1 day
   static const int BANNER_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
+  static const int ADMIN_CACHE_DURATION = 0;
+
+  // 30 * 24 * 60 * 60 * 1000; // 1 month
+  static const int SPOTS_CACHE_DURATION = 10 * 24 * 60 * 60 * 1000; // 10 day
 
   // Initialize with a default token for fallback
   ApiService() {
@@ -77,6 +82,13 @@ class ApiService {
         final Map<String, dynamic> adminData = response.data["data"];
         _systemToken = adminData['system_token'];
 
+        // Parse and store the delivery fee
+        if (adminData.containsKey('delivery')) {
+          debugPrint('✅ Retrieved delivery fee: ${adminData['delivery']}');
+        } else {
+          debugPrint('⚠️ Delivery fee not found in admin data');
+        }
+
         // Cache the response with timestamp
         final Map<String, dynamic> cacheObject = {
           'timestamp': DateTime.now().millisecondsSinceEpoch,
@@ -109,21 +121,67 @@ class ApiService {
     }
   }
 
-  // Get system token - use cached value if available
   Future<String> getSystemToken() async {
+    // Check if we already have a cached token
     if (_systemToken != null && _systemToken!.isNotEmpty) {
       return _systemToken!;
     }
 
     try {
+      // Try to fetch admin data which contains the token
       final adminData = await fetchAdminData();
-      _systemToken = adminData['system_token'] ?? Constants.defaultApiToken;
-      debugPrint("🔑 Token retrieved: ${_systemToken!.substring(0, 10)}...");
-      return _systemToken!;
+
+      // Safely extract token using bracket notation
+      if (adminData != null && adminData.containsKey('system_token')) {
+        _systemToken = adminData['system_token'];
+
+        // If token is non-empty, use it
+        if (_systemToken != null && _systemToken!.isNotEmpty) {
+          debugPrint(
+            "🔑 Token retrieved: ${_systemToken!.length > 10 ? _systemToken!.substring(0, 10) + '...' : _systemToken}",
+          );
+          return _systemToken!;
+        }
+      }
+
+      // If we get here, either adminData was null or token was empty
+      // Fall back to default token
+      debugPrint("⚠️ Using default token as no valid token was found");
+      return Constants.defaultApiToken;
     } catch (e) {
       debugPrint("❌ Error retrieving system token: $e");
       return Constants.defaultApiToken;
     }
+  }
+
+  Future<int> getDeliveryFee() async {
+    // If we have an admin model instance, use it
+    if (_adminData != null) {
+      return _adminData!.delivery;
+    }
+
+    // If no cached data, try to fetch it
+    try {
+      final adminData = await fetchAdminData();
+      if (adminData != null && adminData.containsKey('delivery')) {
+        // Parse the delivery fee with error handling
+        int deliveryFee = 0;
+        try {
+          deliveryFee = int.parse(adminData['delivery'].toString());
+          debugPrint('✅ Retrieved delivery fee: $deliveryFee');
+        } catch (e) {
+          debugPrint('⚠️ Error parsing delivery fee: $e');
+        }
+        return deliveryFee;
+      } else {
+        debugPrint('⚠️ Delivery fee field not found in admin data');
+      }
+    } catch (e) {
+      debugPrint("❌ Error fetching delivery fee: $e");
+    }
+
+    // Default delivery fee if all else fails
+    return 0; // Default to 0 instead of hardcoded value
   }
 
   // Fetch categories with caching
@@ -352,6 +410,79 @@ class ApiService {
     }
   }
 
+  Future<List<SpotModel>> fetchSpots() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? cachedData = prefs.getString(SPOTS_CACHE_KEY);
+
+      if (cachedData != null) {
+        final Map<String, dynamic> spotsCache = jsonDecode(cachedData);
+        final int timestamp = spotsCache['timestamp'] ?? 0;
+
+        // Check if cache is still valid (1 day)
+        if (DateTime.now().millisecondsSinceEpoch - timestamp <
+            SPOTS_CACHE_DURATION) {
+          debugPrint('✅ Using cached spots data');
+          final List<dynamic> cachedSpots = spotsCache['data'];
+          return cachedSpots.map((json) => SpotModel.fromJson(json)).toList();
+        }
+      }
+
+      // Cache expired or not available, fetch from API
+      final token = await getSystemToken();
+
+      debugPrint(
+        '🔍 Fetching spots from API with token: ${token.substring(0, 10)}...',
+      );
+
+      final response = await _dio.get(
+        'https://joinposter.com/api/access.getSpots',
+        queryParameters: {'token': token},
+      );
+
+      debugPrint('📊 Spots API response status: ${response.statusCode}');
+
+      if (response.statusCode == 200 && response.data["response"] != null) {
+        final List<dynamic> data = response.data["response"];
+        debugPrint('📊 Number of spots: ${data.length}');
+
+        // Cache the response with timestamp
+        final Map<String, dynamic> cacheObject = {
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'data': data,
+        };
+
+        await prefs.setString(SPOTS_CACHE_KEY, jsonEncode(cacheObject));
+        debugPrint('✅ Spots fetched and cached');
+
+        final spots = data.map((json) => SpotModel.fromJson(json)).toList();
+        debugPrint('📊 Parsed spots: ${spots.length}');
+        return spots;
+      } else {
+        debugPrint('⚠️ Invalid response format for spots');
+        return [];
+      }
+    } catch (e) {
+      debugPrint("❌ Error fetching spots: $e");
+
+      // Try to get spots from cache regardless of age
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final String? cachedData = prefs.getString(SPOTS_CACHE_KEY);
+        if (cachedData != null) {
+          final Map<String, dynamic> spotsCache = jsonDecode(cachedData);
+          final List<dynamic> cachedSpots = spotsCache['data'];
+          debugPrint('⚠️ Using expired cached spots due to error');
+          return cachedSpots.map((json) => SpotModel.fromJson(json)).toList();
+        }
+      } catch (_) {
+        // Ignore cache reading errors
+      }
+
+      return []; // Return empty list if all fails
+    }
+  }
+
   // User authentication functions
   Future<Map<String, dynamic>?> loginUser(String phone, String password) async {
     try {
@@ -559,8 +690,7 @@ class ApiService {
     }
   }
 
-  // Mock orders for order history
-  // Update this method in your ApiService class to match the OrderModel and OrderItem constructors
+  // Update the mock orders to include proper spot information for takeaway orders
 
   // Mock orders for order history
   Future<List<OrderModel>> fetchOrderHistory() async {
@@ -573,7 +703,10 @@ class ApiService {
         return [];
       }
 
-      // For now, return mock data
+      // Get the current delivery fee from admin data
+      int deliveryFee = await getDeliveryFee();
+
+      // For now, return mock data with the current delivery fee
       // In a real app, this would make an API call
       await Future.delayed(
         Duration(milliseconds: 500),
@@ -582,12 +715,10 @@ class ApiService {
       return [
         OrderModel(
           id: "1",
-          // Changed to String
           date: '01.03.2025',
           items: [
             OrderItem(
               id: "101",
-              // Changed from productId to id
               name: 'Биг чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
@@ -595,7 +726,6 @@ class ApiService {
             ),
             OrderItem(
               id: "102",
-              // Changed from productId to id
               name: 'Чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
@@ -603,19 +733,20 @@ class ApiService {
             ),
           ],
           subtotal: 14000000,
-          deliveryFee: 1000000,
-          total: 15000000,
+          deliveryFee: deliveryFee,
+          // Using dynamic delivery fee from admin data
+          total: 14000000 + deliveryFee,
+          // Calculate total with dynamic fee
           status: 'Доставлен',
           deliveryType: 'delivery',
+          address: 'ул. Пушкина, д. 10, кв. 5',
         ),
         OrderModel(
           id: "2",
-          // Changed to String
           date: '01.03.2025',
           items: [
             OrderItem(
               id: "103",
-              // Changed from productId to id
               name: 'Биг чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
@@ -623,7 +754,6 @@ class ApiService {
             ),
             OrderItem(
               id: "104",
-              // Changed from productId to id
               name: 'Чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
@@ -631,19 +761,20 @@ class ApiService {
             ),
           ],
           subtotal: 14000000,
-          deliveryFee: 1000000,
-          total: 15000000,
+          deliveryFee: deliveryFee,
+          // Using dynamic delivery fee from admin data
+          total: 14000000 + deliveryFee,
+          // Calculate total with dynamic fee
           status: 'В пути',
           deliveryType: 'delivery',
+          address: 'ул. Ленина, д. 15, кв. 78',
         ),
         OrderModel(
           id: "3",
-          // Changed to String
           date: '01.03.2025',
           items: [
             OrderItem(
               id: "105",
-              // Changed from productId to id
               name: 'Биг чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
@@ -651,7 +782,6 @@ class ApiService {
             ),
             OrderItem(
               id: "106",
-              // Changed from productId to id
               name: 'Чизбургер',
               price: 3500000,
               imageUrl: 'assets/images/no_image.png',
@@ -659,10 +789,45 @@ class ApiService {
             ),
           ],
           subtotal: 14000000,
-          deliveryFee: 1000000,
-          total: 15000000,
+          deliveryFee: 0,
+          // No delivery fee for pickup orders
+          total: 14000000,
+          // No delivery fee added
           status: 'Доставлен',
           deliveryType: 'pickup',
+          spotId: "1",
+          spotName: "Possible4",
+          address: "68VF+49W, Ташкент, Ташкентская область",
+        ),
+        OrderModel(
+          id: "4",
+          date: '02.03.2025',
+          items: [
+            OrderItem(
+              id: "107",
+              name: 'Двойной чизбургер',
+              price: 4000000,
+              imageUrl: 'assets/images/no_image.png',
+              quantity: 1,
+            ),
+            OrderItem(
+              id: "108",
+              name: 'Кола',
+              price: 800000,
+              imageUrl: 'assets/images/no_image.png',
+              quantity: 2,
+            ),
+          ],
+          subtotal: 5600000,
+          deliveryFee: 0,
+          // No delivery fee for pickup orders
+          total: 5600000,
+          // No delivery fee added
+          status: 'Готовится',
+          deliveryType: 'pickup',
+          spotId: "2",
+          spotName: "2possible",
+          address: "дом №1, ул Бадахшон 2 проезд, 100000, Ташкент, Toshkent",
         ),
       ];
     } catch (e) {

@@ -18,7 +18,8 @@ class Constants {
   static const double fontSizeXLarge = 24.0;
 
   // API base URL
-  static const String apiBaseUrl = "http://172.20.10.9:8080/api";
+  // static const String apiBaseUrl = "http://172.20.10.9:8080/api"; // phone
+  static const String apiBaseUrl = "http://192.168.1.9:8080/api"; // wifi
   static const String defaultApiToken = "";
 
   // Other app constants

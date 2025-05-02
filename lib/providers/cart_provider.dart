@@ -1,4 +1,5 @@
-// lib/providers/cart_provider.dart
+// lib/providers/cart_provider.dart - Update to handle delivery fee properly
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,14 +13,17 @@ class CartProvider with ChangeNotifier {
 
   // Delivery info
   bool _isDelivery = true; // true = delivery, false = pickup
-  int _deliveryFee = 0; // Default to 0, will be updated from admin data
-  bool _isDeliveryFeeLoaded = false;
+  int _deliveryFee = 0; // Initialize with 0
+
+  // Remove the loading indicator flag since we don't need it anymore
+  // bool _isLoadingDeliveryFee = false;
 
   final ApiService _apiService;
 
   CartProvider({ApiService? apiService})
     : _apiService = apiService ?? ApiService() {
     _loadCartFromCache();
+    // Immediately start loading the delivery fee
     _loadDeliveryFee();
   }
 
@@ -28,26 +32,82 @@ class CartProvider with ChangeNotifier {
 
   bool get isDelivery => _isDelivery;
 
-  int get deliveryFee => _isDelivery ? _deliveryFee : 0;
+  // Delivery fee getter - always return the actual loaded value
+  int get deliveryFee {
+    // If delivery is not selected, return 0 regardless
+    if (!_isDelivery) return 0;
 
-  // Load delivery fee from admin data
+    // Log the current delivery fee value
+    debugPrint('📦 Current delivery fee: $_deliveryFee');
+
+    // Return the actual loaded value
+    return _deliveryFee;
+  }
+
+  // Remove the isLoadingDeliveryFee getter since we're not using loaders anymore
+  // bool get isLoadingDeliveryFee => _isLoadingDeliveryFee;
+
+  // Load delivery fee from admin data - simplified since we're not showing loaders
   Future<void> _loadDeliveryFee() async {
-    if (_isDeliveryFeeLoaded) return;
+    debugPrint('📦 Loading delivery fee from admin data...');
 
     try {
-      _deliveryFee = await _apiService.getDeliveryFee();
-      debugPrint('✅ Loaded delivery fee: $_deliveryFee');
-      _isDeliveryFeeLoaded = true;
+      // Call the getDeliveryFee method from ApiService
+      final loadedFee = await _apiService.getDeliveryFee();
+
+      // Log the loaded fee for debugging
+      debugPrint('✅ Successfully loaded delivery fee: $loadedFee');
+
+      // Set the delivery fee
+      _deliveryFee = loadedFee;
+
+      // Notify listeners to update UI
       notifyListeners();
     } catch (e) {
       debugPrint('❌ Error loading delivery fee: $e');
-      // Keep using default value if there's an error
+      // Keep _deliveryFee as is in case of error, we don't need to set a default anymore
+      notifyListeners();
     }
+  }
+
+  // Force reload the delivery fee - simplified since we're not showing loaders
+  Future<void> refreshDeliveryFee() async {
+    debugPrint('🔄 Refreshing delivery fee');
+
+    try {
+      // Call the getDeliveryFee method from ApiService
+      final loadedFee = await _apiService.getDeliveryFee();
+      debugPrint('✅ Successfully refreshed delivery fee: $loadedFee');
+
+      // Set the delivery fee
+      _deliveryFee = loadedFee;
+    } catch (e) {
+      debugPrint('❌ Error refreshing delivery fee: $e');
+      // Keep current value in case of error
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  // Ensure delivery fee is loaded (useful before checkout)
+  Future<int> ensureDeliveryFeeLoaded() async {
+    debugPrint('📦 Ensuring delivery fee is loaded');
+    await refreshDeliveryFee(); // Always refresh for reliability
+    return _deliveryFee;
   }
 
   // Set delivery method
   void setDeliveryMethod(bool isDelivery) {
+    debugPrint(
+      '🚚 Setting delivery method: ${isDelivery ? "Delivery" : "Pickup"}',
+    );
     _isDelivery = isDelivery;
+
+    // Ensure delivery fee is loaded when switching to delivery
+    if (isDelivery) {
+      refreshDeliveryFee(); // Always refresh when switching to delivery
+    }
+
     notifyListeners();
     _saveCartToCache();
   }
@@ -205,6 +265,11 @@ class CartProvider with ChangeNotifier {
       );
     }
 
+    // Ensure delivery fee is loaded when adding items
+    if (_isDelivery) {
+      _loadDeliveryFee();
+    }
+
     notifyListeners();
     _saveCartToCache();
   }
@@ -311,7 +376,12 @@ class CartProvider with ChangeNotifier {
 
   // Get total price including delivery (as int)
   int get total {
-    return subtotal + (_isDelivery ? _deliveryFee : 0);
+    final currentDeliveryFee =
+        deliveryFee; // Use the getter which handles delivery/pickup mode
+    debugPrint(
+      '🧮 Cart total calculation: subtotal($subtotal) + deliveryFee($currentDeliveryFee) = ${subtotal + currentDeliveryFee}',
+    );
+    return subtotal + currentDeliveryFee;
   }
 
   // Clear all items from cart
@@ -353,5 +423,19 @@ class CartProvider with ChangeNotifier {
     );
 
     addItem(cartItem);
+  }
+
+  // Prepare for checkout by ensuring delivery fee is loaded
+  Future<void> prepareForCheckout() async {
+    debugPrint('🛒 Preparing cart for checkout...');
+
+    // Always refresh the delivery fee before checkout
+    if (_isDelivery) {
+      await refreshDeliveryFee();
+    }
+
+    debugPrint(
+      '🛒 Cart ready for checkout with delivery fee: $_deliveryFee (applied: ${_isDelivery ? "yes" : "no"})',
+    );
   }
 }

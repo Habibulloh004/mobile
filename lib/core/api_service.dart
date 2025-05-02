@@ -30,7 +30,6 @@ class ApiService {
   static const int ORDERS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 1 day
   static const int BANNER_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
   static const int ADMIN_CACHE_DURATION = 0;
-
   // 30 * 24 * 60 * 60 * 1000; // 1 month
   static const int SPOTS_CACHE_DURATION = 10 * 24 * 60 * 60 * 1000; // 10 day
 
@@ -154,34 +153,130 @@ class ApiService {
     }
   }
 
-  Future<int> getDeliveryFee() async {
-    // If we have an admin model instance, use it
-    if (_adminData != null) {
-      return _adminData!.delivery;
-    }
+  // Modified getDeliveryFee method in ApiService class
+  // Add this to your existing ApiService.dart file
 
-    // If no cached data, try to fetch it
+  Future<int> getDeliveryFee() async {
+    debugPrint(
+      '📦 getDeliveryFee called - fetching delivery fee from admin data',
+    );
+
     try {
+      // Fetch admin data which contains the delivery fee
       final adminData = await fetchAdminData();
-      if (adminData != null && adminData.containsKey('delivery')) {
-        // Parse the delivery fee with error handling
-        int deliveryFee = 0;
-        try {
-          deliveryFee = int.parse(adminData['delivery'].toString());
-          debugPrint('✅ Retrieved delivery fee: $deliveryFee');
-        } catch (e) {
-          debugPrint('⚠️ Error parsing delivery fee: $e');
+
+      if (adminData != null) {
+        // Debug log the raw data to see what's available
+        debugPrint('📋 Admin data keys: ${adminData.keys.join(", ")}');
+
+        if (adminData.containsKey('delivery')) {
+          // Log the actual delivery value from admin data for debugging
+          debugPrint(
+            '📋 Raw delivery value: ${adminData['delivery']} (type: ${adminData['delivery'].runtimeType})',
+          );
+
+          // Parse the delivery fee with proper handling for different types
+          var deliveryValue = adminData['delivery'];
+          int deliveryFee = 0;
+
+          try {
+            // Handle different data types appropriately
+            if (deliveryValue is int) {
+              deliveryFee = deliveryValue;
+              debugPrint('✅ Delivery fee parsed as int: $deliveryFee');
+            } else if (deliveryValue is double) {
+              deliveryFee = deliveryValue.toInt();
+              debugPrint(
+                '✅ Delivery fee parsed as double and converted to int: $deliveryFee',
+              );
+            } else if (deliveryValue is String) {
+              // Try to parse as string
+              String deliveryStr = deliveryValue.trim();
+
+              // Handle empty strings
+              if (deliveryStr.isEmpty) {
+                debugPrint('⚠️ Delivery fee is empty string, returning 0');
+                return 0;
+              }
+
+              // If string contains non-numeric chars, try to clean it
+              if (!RegExp(r'^\d+$').hasMatch(deliveryStr)) {
+                String cleanedStr = deliveryStr.replaceAll(
+                  RegExp(r'[^0-9]'),
+                  '',
+                );
+                debugPrint(
+                  '🔄 Cleaned delivery string: "$deliveryStr" -> "$cleanedStr"',
+                );
+                deliveryStr = cleanedStr;
+              }
+
+              if (deliveryStr.isEmpty) {
+                debugPrint('⚠️ Delivery fee contains no numbers, returning 0');
+                return 0;
+              }
+
+              deliveryFee = int.parse(deliveryStr);
+              debugPrint('✅ Delivery fee parsed from string: $deliveryFee');
+            } else {
+              // Unknown type, use default value of 0
+              debugPrint('⚠️ Unknown delivery fee type, returning 0');
+              deliveryFee = 0;
+            }
+
+            // Save to SharedPreferences to update the cached value
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              final String? cachedData = prefs.getString(ADMIN_CACHE_KEY);
+
+              if (cachedData != null) {
+                final Map<String, dynamic> adminDataCache = jsonDecode(
+                  cachedData,
+                );
+                final Map<String, dynamic> data = adminDataCache['data'];
+
+                // Update the delivery value in the cached data
+                data['delivery'] = deliveryFee;
+
+                // Save the updated data back to cache
+                final Map<String, dynamic> updatedCache = {
+                  'timestamp': adminDataCache['timestamp'],
+                  'data': data,
+                };
+
+                await prefs.setString(
+                  ADMIN_CACHE_KEY,
+                  jsonEncode(updatedCache),
+                );
+                debugPrint(
+                  '✅ Updated delivery fee in cached admin data: $deliveryFee',
+                );
+              }
+            } catch (e) {
+              debugPrint('⚠️ Error updating cached admin data: $e');
+            }
+
+            debugPrint('✅ Final delivery fee: $deliveryFee');
+            return deliveryFee;
+          } catch (e) {
+            debugPrint('⚠️ Error parsing delivery fee: $e, returning 0');
+            return 0;
+          }
+        } else {
+          debugPrint(
+            '⚠️ Delivery fee field not found in admin data, returning 0',
+          );
+          return 0;
         }
-        return deliveryFee;
       } else {
-        debugPrint('⚠️ Delivery fee field not found in admin data');
+        debugPrint('⚠️ Admin data is null, returning 0');
+        return 0;
       }
     } catch (e) {
-      debugPrint("❌ Error fetching delivery fee: $e");
+      debugPrint("❌ Error fetching admin data for delivery fee: $e");
+      // Return 0 as a fallback
+      return 0;
     }
-
-    // Default delivery fee if all else fails
-    return 0; // Default to 0 instead of hardcoded value
   }
 
   // Fetch categories with caching

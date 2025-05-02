@@ -1,5 +1,7 @@
+// lib/views/cart_page.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:poster_app/core/api_service.dart';
 import 'package:poster_app/providers/spot_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
@@ -8,7 +10,76 @@ import '../constant/index.dart';
 import '../helpers/index.dart';
 import 'checkout_page.dart';
 
-class CartPage extends StatelessWidget {
+class CartPage extends StatefulWidget {
+  @override
+  _CartPageState createState() => _CartPageState();
+}
+
+class _CartPageState extends State<CartPage> {
+  // Removed _loadingDeliveryFee flag since we don't need it anymore
+
+  @override
+  void initState() {
+    super.initState();
+    // Force delivery fee loading on page open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureDeliveryFeeLoaded();
+      _debugAdminData();
+    });
+  }
+
+  Future<void> _debugAdminData() async {
+    debugPrint('🔍 DEBUG: Starting admin data debug');
+
+    try {
+      // Access the API service through the cart provider
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      final apiService = ApiService(); // Create a direct instance for debugging
+
+      // Debug the admin data directly
+      final adminData = await apiService.fetchAdminData();
+      debugPrint('📋 DEBUG: Raw admin data: $adminData');
+
+      // Check if delivery field exists and its value
+      if (adminData.containsKey('delivery')) {
+        debugPrint('💰 DEBUG: Raw delivery value from admin: ${adminData['delivery']} (${adminData['delivery'].runtimeType})');
+      } else {
+        debugPrint('❌ DEBUG: No delivery field found in admin data!');
+      }
+
+      // Debug the getDeliveryFee method
+      final deliveryFee = await apiService.getDeliveryFee();
+      debugPrint('🚚 DEBUG: getDeliveryFee result: $deliveryFee');
+
+      // Debug the cart provider's delivery fee
+      debugPrint('🛒 DEBUG: CartProvider delivery fee: ${cartProvider.deliveryFee}');
+
+      // Force a refresh of the delivery fee and check again
+      await cartProvider.refreshDeliveryFee();
+      debugPrint('🔄 DEBUG: After refresh - CartProvider delivery fee: ${cartProvider.deliveryFee}');
+
+      // Check if isDelivery is correctly set
+      debugPrint('📦 DEBUG: isDelivery flag: ${cartProvider.isDelivery}');
+
+      setState(() {
+        // Force UI update
+      });
+    } catch (e) {
+      debugPrint('❌ DEBUG ERROR: $e');
+    }
+  }
+
+  // Simplified method to ensure delivery fee is loaded
+  Future<void> _ensureDeliveryFeeLoaded() async {
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    // Just refresh the delivery fee without any loading indicators
+    await cartProvider.refreshDeliveryFee();
+    // Debug log the delivery fee after loading
+    debugPrint(
+      '📦 Cart page: Delivery fee loaded: ${cartProvider.deliveryFee}',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
@@ -104,6 +175,14 @@ class CartPage extends StatelessWidget {
   }
 
   Widget _buildCartItems(BuildContext context, CartProvider cartProvider) {
+    // When delivery type changes, load spots if needed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!cartProvider.isDelivery) {
+        final spotProvider = Provider.of<SpotProvider>(context, listen: false);
+        spotProvider.loadSpots();
+      }
+    });
+
     return Column(
       children: [
         // Delivery method selector
@@ -120,6 +199,8 @@ class CartPage extends StatelessWidget {
                         listen: false,
                       ).resetSelection();
                       cartProvider.setDeliveryMethod(true);
+                      // Force refresh delivery fee when switching to delivery
+                      _ensureDeliveryFeeLoaded();
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -219,7 +300,7 @@ class CartPage extends StatelessWidget {
                 ],
               ),
 
-              // Delivery fee (if applicable)
+              // Delivery fee (if applicable) - Remove loading indicator
               if (cartProvider.isDelivery)
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
@@ -233,6 +314,7 @@ class CartPage extends StatelessWidget {
                           color: ColorUtils.secondaryColor,
                         ),
                       ),
+                      // Show delivery fee directly without loader
                       Text(
                         formatPrice(cartProvider.deliveryFee),
                         style: TextStyle(
@@ -276,7 +358,11 @@ class CartPage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
+                    // Ensure delivery fee is loaded before proceeding to checkout
+                    if (cartProvider.isDelivery) {
+                      await cartProvider.prepareForCheckout();
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => CheckoutPage()),

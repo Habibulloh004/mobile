@@ -38,6 +38,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (!cartProvider.isDelivery) {
         _loadSpots();
       }
+
+      // Ensure delivery fee is loaded
+      if (cartProvider.isDelivery) {
+        cartProvider.refreshDeliveryFee();
+      }
     });
   }
 
@@ -84,8 +89,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     try {
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
-      // We don't need to do anything special here since cartProvider.deliveryFee
-      // now returns the current dynamic value
+
+      // IMPORTANT: Ensure delivery fee is properly loaded before proceeding
+      await cartProvider.prepareForCheckout();
 
       // Get spot information if takeaway is selected
       String? spotId;
@@ -123,6 +129,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // Simulate a network request
       await Future.delayed(Duration(seconds: 2));
 
+      // Log the delivery fee being used
+      debugPrint(
+        '💰 Creating order with delivery fee: ${cartProvider.deliveryFee}',
+      );
+      debugPrint(
+        '💰 Total calculation: ${cartProvider.subtotal} + ${cartProvider.deliveryFee} = ${cartProvider.total}',
+      );
+
       // Order was successful, navigate to confirmation with current delivery fee
       Navigator.pushReplacement(
         context,
@@ -134,7 +148,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 total: cartProvider.total,
                 subtotal: cartProvider.subtotal,
                 deliveryFee: cartProvider.deliveryFee,
-                // This is now dynamic
                 address:
                     cartProvider.isDelivery
                         ? _addressController.text
@@ -480,6 +493,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               color: ColorUtils.secondaryColor,
                             ),
                           ),
+                          // Show delivery fee directly without loader
                           Text(
                             formatPrice(cartProvider.deliveryFee),
                             style: TextStyle(

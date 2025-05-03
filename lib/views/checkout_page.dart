@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:poster_app/widgets/animated_input_field.dart';
@@ -13,6 +13,8 @@ import '../models/spot_model.dart';
 import '../utils/color_utils.dart';
 import '../constant/index.dart';
 import '../helpers/index.dart';
+import '../core/api_service.dart';
+import '../services/order_service.dart';
 import 'order_confirmation_page.dart';
 import 'login_page.dart';
 
@@ -39,6 +41,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String _userPhone = '';
   bool _isLoggedIn = false;
   SpotModel? _selectedSpot;
+  final ApiService _apiService = ApiService();
+  final Dio _dio = Dio();
+  final OrderService _orderService = OrderService();
 
   // Bonus functionality variables
   bool _showBonusInput = false;
@@ -325,62 +330,80 @@ class _CheckoutPageState extends State<CheckoutPage> {
         }
       }
 
-      // Simulate a network request
-      await Future.delayed(Duration(seconds: 2));
-
-      // Log the delivery fee being used
-      debugPrint(
-        '💰 Creating order with delivery fee: ${cartProvider.deliveryFee}',
+      // Use the new OrderService to submit the order
+      final orderResult = await _orderService.submitOrder(
+        cartItems: cartProvider.cartItems,
+        phone: _phoneController.text,
+        deliveryType: cartProvider.isDelivery ? "delivery" : "take away",
+        appliedBonus: _appliedBonus,
+        address:
+            cartProvider.isDelivery
+                ? _addressController.text
+                : _selectedSpot?.address ?? '',
+        paymentMethod: _paymentMethod,
+        comment: _noteController.text,
+        deliveryFee: cartProvider.deliveryFee,
+        spotId: spotId,
       );
 
-      // Calculate final total with bonus applied - use raw bonus value
-      final int totalWithBonus = cartProvider.total - _appliedBonus;
+      if (orderResult != null) {
+        // Calculate final total with bonus applied
+        final int totalWithBonus = cartProvider.total - _appliedBonus;
 
-      debugPrint(
-        '💰 Total calculation: ${cartProvider.subtotal} + ${cartProvider.deliveryFee} - $_appliedBonus = $totalWithBonus',
-      );
+        // Order was successful, navigate to confirmation
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => OrderConfirmationPage(
+                  orderId:
+                      int.tryParse(orderResult) ??
+                      DateTime.now().millisecondsSinceEpoch % 1000,
+                  items: cartProvider.cartItems,
+                  total: totalWithBonus,
+                  subtotal: cartProvider.subtotal,
+                  deliveryFee: cartProvider.deliveryFee,
+                  appliedBonus: _appliedBonus,
+                  address:
+                      cartProvider.isDelivery
+                          ? _addressController.text
+                          : _selectedSpot?.address ?? '',
+                  isDelivery: cartProvider.isDelivery,
+                  paymentMethod: _paymentMethod,
+                  spotId: spotId,
+                  spotName: spotName,
+                ),
+          ),
+        );
 
-      // Order was successful, navigate to confirmation with current delivery fee and applied bonus
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => OrderConfirmationPage(
-                orderId: DateTime.now().millisecondsSinceEpoch % 1000,
-                items: cartProvider.cartItems,
-                total: totalWithBonus,
-                subtotal: cartProvider.subtotal,
-                deliveryFee: cartProvider.deliveryFee,
-                appliedBonus: _appliedBonus,
-                // Pass the raw applied bonus
-                address:
-                    cartProvider.isDelivery
-                        ? _addressController.text
-                        : _selectedSpot?.address ?? '',
-                isDelivery: cartProvider.isDelivery,
-                paymentMethod: _paymentMethod,
-                spotId: spotId,
-                spotName: spotName,
-              ),
-        ),
-      );
+        // Clear the cart
+        cartProvider.clearCart();
 
-      // Clear the cart
-      cartProvider.clearCart();
-
-      // If bonus was applied, deduct it from the user's available bonus
-      if (_appliedBonus > 0) {
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          // Calculate and save the new raw bonus amount
-          final newRawBonus = _availableBonus - _appliedBonus;
-          await prefs.setString('bonus', newRawBonus.toString());
-          debugPrint(
-            '📊 Updated user bonus from $_availableBonus to $newRawBonus',
-          );
-        } catch (e) {
-          debugPrint('❌ Error updating user bonus: $e');
+        // If bonus was applied, deduct it from the user's available bonus
+        if (_appliedBonus > 0) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            // Calculate and save the new raw bonus amount
+            final newRawBonus = _availableBonus - _appliedBonus;
+            await prefs.setString('bonus', newRawBonus.toString());
+          } catch (e) {
+            debugPrint('❌ Error updating user bonus: $e');
+          }
         }
+      } else {
+        // Order submission failed
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Ошибка при отправке заказа. Пожалуйста, попробуйте еще раз.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -981,8 +1004,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               setState(() {
                                 _appliedBonus = inputValue * 100;
                                 _bonusController.value = TextEditingValue(
-                                  text: formatPrice(inputValue, type: 'space', showCurrency: false),
-                                  selection: TextSelection.collapsed(offset: formatPrice(inputValue, type: 'space', showCurrency: false).length),
+                                  text: formatPrice(
+                                    inputValue,
+                                    type: 'space',
+                                    showCurrency: false,
+                                  ),
+                                  selection: TextSelection.collapsed(
+                                    offset:
+                                        formatPrice(
+                                          inputValue,
+                                          type: 'space',
+                                          showCurrency: false,
+                                        ).length,
+                                  ),
                                 );
                               });
                             },

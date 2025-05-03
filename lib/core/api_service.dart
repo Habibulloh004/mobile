@@ -32,7 +32,7 @@ class ApiService {
   static const int CATEGORIES_CACHE_DURATION = 3 * 60 * 60 * 1000; // 3 hours
   static const int PRODUCTS_CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour
   static const int ORDERS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 1 day
-  static const int BANNER_CACHE_DURATION = 0; // 7 * 24 * 60 * 60 * 1000; // 7 days
+  static const int BANNER_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
   static const int ADMIN_CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
   static const int SPOTS_CACHE_DURATION = 10 * 24 * 60 * 60 * 1000; // 10 days
 

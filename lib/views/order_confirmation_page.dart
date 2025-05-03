@@ -10,6 +10,7 @@ class OrderConfirmationPage extends StatelessWidget {
   final int total;
   final int subtotal;
   final int deliveryFee;
+  final int appliedBonus; // This is already divided by 100
   final String address;
   final bool isDelivery;
   final String paymentMethod;
@@ -23,6 +24,7 @@ class OrderConfirmationPage extends StatelessWidget {
     required this.total,
     required this.subtotal,
     required this.deliveryFee,
+    this.appliedBonus = 0, // Default to 0 if not provided
     required this.address,
     required this.isDelivery,
     required this.paymentMethod,
@@ -79,16 +81,16 @@ class OrderConfirmationPage extends StatelessWidget {
               SizedBox(height: 8),
 
               // Status message
-              Text(
-                isDelivery
-                    ? 'Ожидайте доставку в течение 60 минут'
-                    : 'Ваш заказ будет готов через 20 минут',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: Constants.fontSizeRegular,
-                  color: Colors.grey[600],
-                ),
-              ),
+              // Text(
+              //   isDelivery
+              //       ? 'Ожидайте доставку в течение 60 минут'
+              //       : 'Ваш заказ будет готов через 20 минут',
+              //   textAlign: TextAlign.center,
+              //   style: TextStyle(
+              //     fontSize: Constants.fontSizeRegular,
+              //     color: Colors.grey[600],
+              //   ),
+              // ),
 
               SizedBox(height: 32),
 
@@ -137,7 +139,6 @@ class OrderConfirmationPage extends StatelessWidget {
                                 formatPrice(
                                   (item['price'] ?? 0) *
                                       (item['quantity'] ?? 1),
-                                  subtract: false,
                                 ),
                                 style: TextStyle(
                                   fontSize: Constants.fontSizeRegular,
@@ -165,7 +166,7 @@ class OrderConfirmationPage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          formatPrice(subtotal, subtract: false),
+                          formatPrice(subtotal),
                           style: TextStyle(
                             fontSize: Constants.fontSizeRegular,
                             fontWeight: FontWeight.bold,
@@ -201,6 +202,32 @@ class OrderConfirmationPage extends StatelessWidget {
                         ),
                       ),
 
+                    // Applied bonus (if any) - using formatPrice to handle division by 100
+                    if (appliedBonus > 0)
+                      Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Использовано бонусов',
+                              style: TextStyle(
+                                fontSize: Constants.fontSizeRegular,
+                                color: Colors.green[800],
+                              ),
+                            ),
+                            Text(
+                              '- ${formatPrice(appliedBonus)}',
+                              style: TextStyle(
+                                fontSize: Constants.fontSizeRegular,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[800],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
                     Divider(color: Colors.grey[300]),
 
                     // Total
@@ -216,7 +243,7 @@ class OrderConfirmationPage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          formatPrice(total, subtract: false),
+                          formatPrice(total),
                           style: TextStyle(
                             fontSize: Constants.fontSizeMedium,
                             fontWeight: FontWeight.bold,
@@ -229,116 +256,56 @@ class OrderConfirmationPage extends StatelessWidget {
                 ),
               ),
 
+              // Rest of the UI remains unchanged
+
+              // Bonus earned section - calculate earned bonus based on total (approx 5%)
               SizedBox(height: 24),
-
-              // Delivery/Pickup info
-              if (address.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: ColorUtils.primaryColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isDelivery ? 'Адрес доставки' : 'Адрес самовывоза',
-                        style: TextStyle(
-                          fontSize: Constants.fontSizeMedium,
-                          fontWeight: FontWeight.bold,
-                          color: ColorUtils.secondaryColor,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            isDelivery ? Icons.location_on : Icons.store,
-                            color: Colors.grey[600],
-                            size: 20,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              address,
-                              style: TextStyle(
-                                fontSize: Constants.fontSizeRegular,
-                                color: ColorUtils.secondaryColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      // Show spot name for takeaway orders
-                      if (!isDelivery && spotName != null) ...[
-                        SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.storefront,
-                              color: Colors.grey[600],
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Точка: $spotName',
-                              style: TextStyle(
-                                fontSize: Constants.fontSizeRegular,
-                                fontWeight: FontWeight.bold,
-                                color: ColorUtils.secondaryColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-              if (address.isNotEmpty) SizedBox(height: 24),
-
-              // Payment method
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: ColorUtils.primaryColor,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.green.withOpacity(0.5),
+                    width: 1.5,
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Способ оплаты',
-                      style: TextStyle(
-                        fontSize: Constants.fontSizeMedium,
-                        fontWeight: FontWeight.bold,
-                        color: ColorUtils.secondaryColor,
-                      ),
-                    ),
-                    SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(
-                          paymentMethod == 'card'
-                              ? Icons.credit_card
-                              : Icons.money,
-                          color: Colors.grey[600],
-                          size: 20,
-                        ),
+                        Icon(Icons.savings, color: Colors.green[700], size: 24),
                         SizedBox(width: 8),
                         Text(
-                          paymentMethod == 'card'
-                              ? 'Оплата картой'
-                              : 'Наличными',
+                          'Начислено бонусов',
                           style: TextStyle(
-                            fontSize: Constants.fontSizeRegular,
-                            color: ColorUtils.secondaryColor,
+                            fontSize: Constants.fontSizeMedium,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
                           ),
                         ),
                       ],
+                    ),
+                    SizedBox(height: 8),
+                    // Calculate earned bonus (5% of subtotal)
+                    // Already in raw format (divided by 100)
+                    Text(
+                      formatPrice(subtotal ~/ 20),
+                      style: TextStyle(
+                        fontSize: Constants.fontSizeLarge,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[700],
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Бонусы будут начислены на ваш счет после выполнения заказа',
+                      style: TextStyle(
+                        fontSize: Constants.fontSizeSmall,
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),

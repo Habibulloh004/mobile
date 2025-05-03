@@ -1,6 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:poster_app/widgets/animated_input_field.dart';
+import 'package:poster_app/widgets/textarea.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../providers/cart_provider.dart';
 import '../providers/spot_provider.dart';
 import '../models/spot_model.dart';
@@ -19,12 +25,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
   final _noteController = TextEditingController();
+  final _bonusController = TextEditingController();
+  final _maskFormatter = MaskTextInputFormatter(
+    mask: '+998 (##) ### ## ##',
+    filter: {"#": RegExp(r'[0-9]')},
+    type:
+        MaskAutoCompletionType
+            .eager, // Changed to eager for better auto-completion
+  );
   bool _isLoading = false;
   String _paymentMethod = 'card'; // Default to card payment
   String _userName = '';
   String _userPhone = '';
   bool _isLoggedIn = false;
   SpotModel? _selectedSpot;
+
+  // Bonus functionality variables
+  bool _showBonusInput = false;
+  int _availableBonus = 0; // Stored as raw value (already multiplied by 100)
+  int _appliedBonus =
+      0; // To be used in calculations (already multiplied by 100)
+  int _displayBonus = 0; // For display purposes (divided by 100)
 
   @override
   void initState() {
@@ -52,17 +73,145 @@ class _CheckoutPageState extends State<CheckoutPage> {
     spotProvider.loadSpots();
   }
 
+  String _formatPhoneNumber(String phoneNumber) {
+    // Remove all non-digit characters
+    String digitsOnly = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // If the number is too short, return as is
+    if (digitsOnly.length < 9) return phoneNumber;
+
+    // If the number starts with country code, extract it properly
+    String countryCode = '';
+    String operatorCode = '';
+    String subscriberNumber = '';
+
+    // Check if the number starts with 998 (country code)
+    if (digitsOnly.startsWith('998')) {
+      countryCode = '998';
+      // Extract operator code (2 digits after country code)
+      if (digitsOnly.length >= 5) {
+        operatorCode = digitsOnly.substring(3, 5);
+        // Extract the rest of the number
+        if (digitsOnly.length >= 12) {
+          subscriberNumber = digitsOnly.substring(5);
+        } else {
+          subscriberNumber = digitsOnly.substring(5);
+        }
+      }
+    } else {
+      // If no country code, assume it's a local number
+      // Get the first 2 digits as operator code
+      if (digitsOnly.length >= 2) {
+        operatorCode = digitsOnly.substring(0, 2);
+        subscriberNumber = digitsOnly.substring(2);
+      }
+    }
+
+    // Format the number properly
+    if (operatorCode.isNotEmpty) {
+      // Ensure subscriberNumber is exactly 7 digits (if longer, take the first 7)
+      if (subscriberNumber.length > 7) {
+        subscriberNumber = subscriberNumber.substring(0, 7);
+      }
+
+      // Add padding if shorter than 7 digits (shouldn't normally happen)
+      while (subscriberNumber.length < 7) {
+        subscriberNumber = subscriberNumber + '0';
+      }
+
+      // Format: +998 (XX) XXX XX XX
+      return '+998 (${operatorCode}) ${subscriberNumber.substring(0, 3)} ${subscriberNumber.substring(3, 5)} ${subscriberNumber.substring(5)}';
+    } else {
+      return phoneNumber;
+    }
+  }
+
   Future<void> _loadUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final loggedIn = prefs.getBool('isLoggedIn') ?? false;
 
       if (loggedIn) {
+        // Try to get data from the new userData format first
+        final String? userDataJson = prefs.getString('userData');
+
+        if (userDataJson != null && userDataJson.isNotEmpty) {
+          // Parse the complete response structure
+          Map<String, dynamic> userData = {};
+
+          try {
+            final parsedData = json.decode(userDataJson);
+
+            // Check if we have the expected response format
+            if (parsedData != null &&
+                parsedData['response'] != null &&
+                parsedData['response'] is List &&
+                parsedData['response'].isNotEmpty) {
+              // Get the first client from the response array
+              userData = parsedData['response'][0];
+
+              setState(() {
+                _isLoggedIn = true;
+
+                // Get user name - use lastname as the primary name field
+                _userName = userData['lastname'] ?? '';
+
+                // Get phone - preferably use phone_number field which has the raw format
+                _userPhone =
+                    userData['phone_number'] ?? userData['phone'] ?? '';
+
+                // Format the phone number using our helper function
+                if (_userPhone.isNotEmpty) {
+                  _phoneController.text = _formatPhoneNumber(_userPhone);
+                  debugPrint(
+                    '📱 Phone formatted from: $_userPhone to: ${_phoneController.text}',
+                  );
+                }
+
+                // Load user's available bonus from the response
+                final bonusStr = userData['bonus'] ?? '0';
+                _availableBonus = int.tryParse(bonusStr) ?? 0;
+
+                // Calculate display value (divided by 100)
+                _displayBonus = (_availableBonus / 100).round();
+
+                debugPrint(
+                  '📊 Loaded user data from userData: Name: $_userName, Phone: $_userPhone, Bonus: $_availableBonus',
+                );
+              });
+
+              return; // Successfully loaded from userData
+            }
+          } catch (e) {
+            debugPrint('Error parsing userData JSON: $e');
+            // Continue to try legacy format
+          }
+        }
+
+        // Fallback to legacy format if userData format failed
         setState(() {
           _isLoggedIn = true;
           _userName = prefs.getString('name') ?? '';
           _userPhone = prefs.getString('phone') ?? '';
-          _phoneController.text = _userPhone;
+
+          // Format the phone number using our helper function
+          if (_userPhone.isNotEmpty) {
+            _phoneController.text = _formatPhoneNumber(_userPhone);
+            debugPrint(
+              '📱 Phone formatted from: $_userPhone to: ${_phoneController.text}',
+            );
+          }
+
+          // Load user's available bonus
+          final bonusStr = prefs.getString('bonus') ?? '0';
+          _availableBonus = int.tryParse(bonusStr) ?? 0;
+
+          // Calculate display value (divided by 100)
+          _displayBonus = (_availableBonus / 100).round();
+
+          debugPrint(
+            '📊 Loaded user data from legacy format: Name: $_userName, Phone: $_userPhone, Bonus: $_availableBonus',
+          );
         });
       }
     } catch (e) {
@@ -75,7 +224,57 @@ class _CheckoutPageState extends State<CheckoutPage> {
     _addressController.dispose();
     _phoneController.dispose();
     _noteController.dispose();
+    _bonusController.dispose();
     super.dispose();
+  }
+
+  // Method to toggle bonus input visibility
+  void _toggleBonusInput() {
+    setState(() {
+      _showBonusInput = !_showBonusInput;
+
+      // Clear bonus input when hiding
+      if (!_showBonusInput) {
+        _bonusController.clear();
+        _appliedBonus = 0;
+      }
+    });
+  }
+
+  // Method to validate and apply bonus
+  void _applyBonus() {
+    if (_bonusController.text.isEmpty) {
+      setState(() {
+        _appliedBonus = 0;
+      });
+      return;
+    }
+
+    // Parse the input bonus (this is the display value)
+    final enteredDisplayBonus = int.tryParse(_bonusController.text) ?? 0;
+
+    // Convert to raw value for comparison (multiply by 100)
+    final enteredRawBonus = enteredDisplayBonus * 100;
+
+    // Validate against available bonus
+    if (enteredRawBonus > _availableBonus) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('У вас недостаточно бонусов. Доступно: $_displayBonus'),
+          backgroundColor: Colors.red,
+        ),
+      );
+
+      // Reset to maximum available display value
+      setState(() {
+        _bonusController.text = _displayBonus.toString();
+        _appliedBonus = _availableBonus; // Store as raw value
+      });
+    } else {
+      setState(() {
+        _appliedBonus = enteredRawBonus; // Store as raw value
+      });
+    }
   }
 
   Future<void> _submitOrder() async {
@@ -133,11 +332,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
       debugPrint(
         '💰 Creating order with delivery fee: ${cartProvider.deliveryFee}',
       );
+
+      // Calculate final total with bonus applied - use raw bonus value
+      final int totalWithBonus = cartProvider.total - _appliedBonus;
+
       debugPrint(
-        '💰 Total calculation: ${cartProvider.subtotal} + ${cartProvider.deliveryFee} = ${cartProvider.total}',
+        '💰 Total calculation: ${cartProvider.subtotal} + ${cartProvider.deliveryFee} - $_appliedBonus = $totalWithBonus',
       );
 
-      // Order was successful, navigate to confirmation with current delivery fee
+      // Order was successful, navigate to confirmation with current delivery fee and applied bonus
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -145,9 +348,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
               (context) => OrderConfirmationPage(
                 orderId: DateTime.now().millisecondsSinceEpoch % 1000,
                 items: cartProvider.cartItems,
-                total: cartProvider.total,
+                total: totalWithBonus,
                 subtotal: cartProvider.subtotal,
                 deliveryFee: cartProvider.deliveryFee,
+                appliedBonus: _appliedBonus,
+                // Pass the raw applied bonus
                 address:
                     cartProvider.isDelivery
                         ? _addressController.text
@@ -162,6 +367,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       // Clear the cart
       cartProvider.clearCart();
+
+      // If bonus was applied, deduct it from the user's available bonus
+      if (_appliedBonus > 0) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          // Calculate and save the new raw bonus amount
+          final newRawBonus = _availableBonus - _appliedBonus;
+          await prefs.setString('bonus', newRawBonus.toString());
+          debugPrint(
+            '📊 Updated user bonus from $_availableBonus to $newRawBonus',
+          );
+        } catch (e) {
+          debugPrint('❌ Error updating user bonus: $e');
+        }
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -437,6 +657,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Widget _buildCheckoutForm(CartProvider cartProvider) {
+    // Calculate the final total with bonuses applied
+    final int totalAfterBonus =
+        cartProvider.total > _appliedBonus
+            ? cartProvider.total - _appliedBonus
+            : 0;
+
     // When delivery type changes, load spots if needed
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!cartProvider.isDelivery) {
@@ -505,7 +731,35 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         ],
                       ),
                     ),
+
+                  // Show applied bonus if any
+                  if (_appliedBonus > 0)
+                    Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Применено бонусов',
+                            style: TextStyle(
+                              fontSize: Constants.fontSizeRegular,
+                              color: Colors.green[800],
+                            ),
+                          ),
+                          Text(
+                            '- ${formatPrice(_appliedBonus)}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: Constants.fontSizeRegular,
+                              color: Colors.green[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                   Divider(height: 24, color: Colors.grey[300]),
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -518,7 +772,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         ),
                       ),
                       Text(
-                        formatPrice(cartProvider.total),
+                        formatPrice(totalAfterBonus),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: Constants.fontSizeMedium,
@@ -543,23 +797,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ),
             SizedBox(height: 10),
-            TextField(
+            AnimatedInputField(
               controller: _phoneController,
-              decoration: InputDecoration(
-                labelText: 'Телефон',
-                filled: true,
-                fillColor: Colors.white,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(5),
-                  borderSide: BorderSide(
-                    color: ColorUtils.accentColor,
-                    width: 1.0,
-                  ),
-                ),
-
-                prefixIcon: Icon(Icons.phone),
-              ),
+              labelText: 'Телефон',
+              hintText: '+998 (90) 123 45 67',
+              prefixIcon: Icons.phone,
               keyboardType: TextInputType.phone,
+              inputFormatters: [_maskFormatter],
             ),
 
             SizedBox(height: 24),
@@ -575,18 +819,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
               ),
               SizedBox(height: 8),
-              TextField(
+              // Address field replacement
+              AnimatedInputField(
                 controller: _addressController,
-                decoration: InputDecoration(
-                  labelText: 'Адрес',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                  prefixIcon: Icon(Icons.location_on),
-                ),
+                labelText: 'Адрес',
+                prefixIcon: Icons.location_on,
               ),
               SizedBox(height: 24),
             ] else ...[
@@ -655,70 +892,130 @@ class _CheckoutPageState extends State<CheckoutPage> {
             SizedBox(height: 24),
 
             // Additional notes
-            Text(
-              'Комментарий к заказу',
-              style: TextStyle(
-                fontSize: Constants.fontSizeMedium,
-                fontWeight: FontWeight.bold,
-                color: ColorUtils.secondaryColor,
-              ),
-            ),
-            SizedBox(height: 8),
-            TextField(
+            WebTextareaField(
               controller: _noteController,
-              decoration: InputDecoration(
-                hintText: 'Комментарий к заказу (необязательно)',
-                filled: true,
-                fillColor: Colors.white,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: ColorUtils.accentColor,
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: ColorUtils.accentColor,
-                    width: 2,
-                  ),
-                ),
-              ),
-              maxLines: 3,
+              labelText: 'Комментарий к заказу',
+              hintText: 'Введите дополнительную информацию о вашем заказе...',
+              maxLines: 4,
+              maxLength: 200, // Optional: set a character limit
             ),
 
             SizedBox(height: 32),
 
-            // Apply bonus
-            Container(
-              width: double.infinity,
-              height: 50,
-              child: OutlinedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Функция бонусов скоро будет доступна'),
+            // Apply bonus section
+            if (_availableBonus > 0) ...[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Bonus button
+                  Container(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton(
+                      onPressed: _toggleBonusInput,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color:
+                              _showBonusInput
+                                  ? Colors.red
+                                  : ColorUtils.accentColor,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        _showBonusInput ? 'Отмена' : 'Использовать бонусы',
+                        style: TextStyle(
+                          color:
+                              _showBonusInput
+                                  ? Colors.red
+                                  : ColorUtils.accentColor,
+                          fontSize: Constants.fontSizeRegular,
+                        ),
+                      ),
                     ),
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: ColorUtils.accentColor),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                child: Text(
-                  'Использовать бонусы',
-                  style: TextStyle(
-                    color: ColorUtils.accentColor,
-                    fontSize: Constants.fontSizeRegular,
-                  ),
-                ),
-              ),
-            ),
 
-            SizedBox(height: 16),
+                  // Available bonus info - show display value (divided by 100)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      'Доступно бонусов: ${formatPrice(_availableBonus, subtract: true)}',
+                      style: TextStyle(
+                        fontSize: Constants.fontSizeSmall,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+
+                  // Bonus input field (conditionally displayed)
+                  if (_showBonusInput) ...[
+                    SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AnimatedInputField(
+                            controller: _bonusController,
+                            labelText: 'Количество бонусов',
+                            hintText: 'Введите сумму бонусов',
+                            keyboardType: TextInputType.number,
+                            suffixText: 'сум',
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              TextInputFormatter.withFunction((
+                                oldValue,
+                                newValue,
+                              ) {
+                                if (newValue.text.isEmpty) return newValue;
+                                final int? value = int.tryParse(newValue.text);
+                                if (value != null && value > _displayBonus) {
+                                  return oldValue;
+                                }
+                                return newValue;
+                              }),
+                            ],
+                            onChanged: (value) {
+                              // Apply bonus on change - convert input to raw value (multiply by 100)
+                              final inputValue = int.tryParse(value) ?? 0;
+                              setState(() {
+                                _appliedBonus = inputValue * 100;
+                                _bonusController.value = TextEditingValue(
+                                  text: formatPrice(inputValue, type: 'space', showCurrency: false),
+                                  selection: TextSelection.collapsed(offset: formatPrice(inputValue, type: 'space', showCurrency: false).length),
+                                );
+                              });
+                            },
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        SizedBox(
+                          height: 50.0, // Set your desired height
+                          child: ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                _bonusController.text =
+                                    _displayBonus.toString();
+                                _appliedBonus = _availableBonus;
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: ColorUtils.accentColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text('Макс'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+
+              SizedBox(height: 16),
+            ],
 
             // Place order button
             SizedBox(

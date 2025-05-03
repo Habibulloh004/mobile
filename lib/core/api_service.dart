@@ -32,8 +32,8 @@ class ApiService {
   static const int CATEGORIES_CACHE_DURATION = 3 * 60 * 60 * 1000; // 3 hours
   static const int PRODUCTS_CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour
   static const int ORDERS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 1 day
-  static const int BANNER_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
-  static const int ADMIN_CACHE_DURATION = 0; // No expiry by default
+  static const int BANNER_CACHE_DURATION = 0; // 7 * 24 * 60 * 60 * 1000; // 7 days
+  static const int ADMIN_CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
   static const int SPOTS_CACHE_DURATION = 10 * 24 * 60 * 60 * 1000; // 10 days
 
   // Initialize with default token
@@ -300,9 +300,9 @@ class ApiService {
       if (response.statusCode == 200 && response.data["response"] != null) {
         final List<dynamic> clients = response.data["response"];
 
-        // Find client with matching phone
+        // Find client with matching phone - try both phone and phone_number fields
         final client = clients.firstWhere(
-          (c) => c["phone_number"] == cleanPhone,
+          (c) => c["phone_number"] == cleanPhone || c["phone"] == cleanPhone,
           orElse: () => null,
         );
 
@@ -322,10 +322,17 @@ class ApiService {
           }
 
           if (extractedPassword == password) {
-            // Cache the client data indefinitely (no timestamp-based expiration)
-            _cacheClientData(client, permanent: true);
+            // Cache the complete response for client data
+            final Map<String, dynamic> fullResponse = {
+              "response": [client],
+            };
 
-            // No need to fetch admin data after login, only on registration
+            // Store the full response structure with the client data
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString("userData", jsonEncode(fullResponse));
+
+            // Also cache the individual client data as before (for backward compatibility)
+            _cacheClientData(client, permanent: true);
 
             debugPrint('✅ Login successful for user: ${client["lastname"]}');
             return client;
@@ -371,7 +378,15 @@ class ApiService {
         // After registration, get the full client data
         final clientData = await getClientById(clientId);
         if (clientData != null) {
-          // Cache the client data indefinitely
+          // Store in the new format compatible with the login function
+          final Map<String, dynamic> fullResponse = {
+            "response": [clientData],
+          };
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString("userData", jsonEncode(fullResponse));
+
+          // Also cache using the old method for backward compatibility
           _cacheClientData(clientData, permanent: true);
 
           // After successful registration, fetch admin data to update caches
@@ -444,14 +459,20 @@ class ApiService {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Save essential client info
+      // Save essential client info for backward compatibility
       await prefs.setBool("isLoggedIn", true);
       await prefs.setInt(
         "client_id",
         int.parse(clientData["client_id"] ?? "0"),
       );
       await prefs.setString("name", clientData["lastname"] ?? "");
-      await prefs.setString("phone", clientData["phone_number"] ?? "");
+
+      // Store both phone formats if available
+      await prefs.setString(
+        "phone",
+        clientData["phone_number"] ?? clientData["phone"] ?? "",
+      );
+
       await prefs.setString("bonus", clientData["bonus"] ?? "0");
       await prefs.setString("discount", clientData["discount_per"] ?? "0");
 
@@ -468,12 +489,24 @@ class ApiService {
         await prefs.setStringList("addresses", addressList);
       }
 
-      // For permanent cache (after login/register), store without timestamp
+      // For permanent cache (after login/register), store client data
       if (permanent) {
+        // Store in the old format for backward compatibility
         await prefs.setString("client_data", jsonEncode(clientData));
-        debugPrint('✅ Client data cached permanently');
+        debugPrint('✅ Client data cached in legacy format');
+
+        // Also ensure the userData format is stored (if not already)
+        final String? existingUserData = prefs.getString("userData");
+        if (existingUserData == null || existingUserData.isEmpty) {
+          // Create the full response structure
+          final Map<String, dynamic> fullResponse = {
+            "response": [clientData],
+          };
+          await prefs.setString("userData", jsonEncode(fullResponse));
+          debugPrint('✅ Client data cached in userData format');
+        }
       } else {
-        // Store with timestamp for normal cache invalidation
+        // Store with timestamp for normal cache invalidation (for the old format)
         final cacheObject = {
           'timestamp': DateTime.now().millisecondsSinceEpoch,
           'data': clientData,

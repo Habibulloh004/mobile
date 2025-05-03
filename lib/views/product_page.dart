@@ -455,7 +455,7 @@ class _ProductPageState extends State<ProductPage>
                                 ),
                               ),
                               Padding(
-                                padding: EdgeInsets.all(12),
+                                padding: EdgeInsets.fromLTRB(12, 12, 12, 16),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -481,6 +481,7 @@ class _ProductPageState extends State<ProductPage>
                                     SizedBox(height: 8),
                                     SizedBox(
                                       width: double.infinity,
+
                                       child:
                                           quantity > 0
                                               ? Row(

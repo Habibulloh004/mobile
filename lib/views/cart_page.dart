@@ -16,6 +16,7 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
+  final ApiService _apiService = ApiService();
   // Removed _loadingDeliveryFee flag since we don't need it anymore
 
   @override
@@ -25,6 +26,7 @@ class _CartPageState extends State<CartPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureDeliveryFeeLoaded();
       _debugAdminData();
+      _apiService.invalidateClientCache();
     });
   }
 

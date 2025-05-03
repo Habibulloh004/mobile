@@ -156,6 +156,18 @@ class _RegisterPageState extends State<RegisterPage> {
       );
 
       if (clientId != null) {
+        // Ensure client cache is invalidated for fresh data
+        _apiService.invalidateClientCache();
+
+        // Fetch admin data to update system after registration
+        try {
+          debugPrint('🔄 Fetching admin data after successful registration...');
+          await _apiService.fetchAdminFromServer();
+        } catch (e) {
+          debugPrint('⚠️ Error fetching admin data after registration: $e');
+          // Continue registration process even if admin data fetch fails
+        }
+
         // Navigate to main page and remove all pages from stack
         Navigator.pushReplacement(
           context,

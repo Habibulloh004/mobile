@@ -178,6 +178,9 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
 
+        // Ensure the client cache is invalidated to fetch fresh data
+        _apiService.invalidateClientCache();
+
         // Navigate to main page and remove login page from stack
         Navigator.pushReplacement(
           context,

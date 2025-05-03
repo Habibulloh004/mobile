@@ -27,6 +27,8 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    // Force cache invalidation on ProfilePage open
+    _apiService.invalidateClientCache();
     _loadClientData();
   }
 
@@ -36,7 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _isLoading = true;
       });
 
-      // First try to get client data from API service
+      // Get client data from API service with cache already invalidated
       final clientData = await _apiService.getLoggedInClientData();
 
       if (clientData != null) {
@@ -134,6 +136,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _refreshProfile() async {
+    // Force cache invalidation when manually refreshing
+    _apiService.invalidateClientCache();
     await _loadClientData();
   }
 
@@ -257,8 +261,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     ),
                                     SizedBox(height: 8),
                                     Text(
-                                      formatPrice(_bonus),
-                                      // formatPrice(10000),
+                                      formatPrice(_bonus, subtract: true),
                                       style: TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold,
@@ -300,7 +303,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     ),
                                   );
                                 },
-                              )
+                              ),
                             ],
                           ),
                         ),
@@ -352,92 +355,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
       onTap: onTap,
-    );
-  }
-
-  void _showAddressesList() {
-    if (_addresses.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("У вас пока нет сохраненных адресов")),
-      );
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Сохраненные адреса",
-                style: TextStyle(
-                  fontSize: Constants.fontSizeLarge,
-                  fontWeight: FontWeight.bold,
-                  color: ColorUtils.secondaryColor,
-                ),
-              ),
-              SizedBox(height: 16),
-              Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.4,
-                ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _addresses.length,
-                  separatorBuilder: (context, index) => Divider(),
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      leading: Icon(
-                        Icons.location_on,
-                        color: ColorUtils.accentColor,
-                      ),
-                      title: Text(_addresses[index]),
-                      trailing: Icon(Icons.edit, color: Colors.grey[400]),
-                      onTap: () {
-                        // TODO: Implement address editing
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "Редактирование адреса скоро будет доступно",
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-              SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ColorUtils.buttonColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text("Закрыть"),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

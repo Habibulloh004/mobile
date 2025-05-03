@@ -542,17 +542,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 color: ColorUtils.secondaryColor,
               ),
             ),
-            SizedBox(height: 8),
+            SizedBox(height: 10),
             TextField(
               controller: _phoneController,
               decoration: InputDecoration(
                 labelText: 'Телефон',
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  borderSide: BorderSide(
+                    color: ColorUtils.accentColor,
+                    width: 1.0,
+                  ),
                 ),
+
                 prefixIcon: Icon(Icons.phone),
               ),
               keyboardType: TextInputType.phone,

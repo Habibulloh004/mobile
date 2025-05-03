@@ -17,6 +17,7 @@ class ApiService {
 
   // Cache keys
   static const String ADMIN_CACHE_KEY = 'admin_data';
+  static const String CLIENT_CACHE_KEY = 'client_data';
   static const String CATEGORIES_CACHE_KEY = 'categories_data';
   static const String PRODUCTS_CACHE_PREFIX = 'products_data_';
   static const String USER_CACHE_KEY = 'user_data';
@@ -24,20 +25,27 @@ class ApiService {
   static const String BANNER_CACHE_KEY = 'banner_data';
   static const String SPOTS_CACHE_KEY = 'spots_data';
 
+  // Flag to force refresh client data
+  bool _forceRefreshClientData = false;
+
   // Cache durations in milliseconds
   static const int CATEGORIES_CACHE_DURATION = 3 * 60 * 60 * 1000; // 3 hours
   static const int PRODUCTS_CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour
   static const int ORDERS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 1 day
   static const int BANNER_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
-  static const int ADMIN_CACHE_DURATION = 0;
-  // 30 * 24 * 60 * 60 * 1000; // 1 month
-  static const int SPOTS_CACHE_DURATION = 10 * 24 * 60 * 60 * 1000; // 10 day
+  static const int ADMIN_CACHE_DURATION = 0; // No expiry by default
+  static const int SPOTS_CACHE_DURATION = 10 * 24 * 60 * 60 * 1000; // 10 days
 
-  // Initialize with a default token for fallback
+  // Initialize with default token
   ApiService() {
-    // Set a default token from constants if available
     _systemToken = Constants.defaultApiToken;
     _initToken();
+  }
+
+  // Method to force refresh client data on next request
+  void invalidateClientCache() {
+    _forceRefreshClientData = true;
+    debugPrint('📊 Client cache invalidated, will refresh on next request');
   }
 
   // Initialize token on startup
@@ -46,6 +54,39 @@ class ApiService {
       await getSystemToken();
     } catch (e) {
       debugPrint("⚠️ Error initializing token: $e");
+    }
+  }
+
+  Future<String> getSystemToken() async {
+    // Check if we already have a cached token
+    if (_systemToken != null && _systemToken!.isNotEmpty) {
+      return _systemToken!;
+    }
+
+    try {
+      // Try to fetch admin data which contains the token
+      final adminData = await fetchAdminData();
+
+      // Safely extract token using bracket notation
+      if (adminData != null && adminData.containsKey('system_token')) {
+        _systemToken = adminData['system_token'];
+
+        // If token is non-empty, use it
+        if (_systemToken != null && _systemToken!.isNotEmpty) {
+          debugPrint(
+            "🔑 Token retrieved: ${_systemToken!.length > 10 ? _systemToken!.substring(0, 10) + '...' : _systemToken}",
+          );
+          return _systemToken!;
+        }
+      }
+
+      // If we get here, either adminData was null or token was empty
+      // Fall back to default token
+      debugPrint("⚠️ Using default token as no valid token was found");
+      return Constants.defaultApiToken;
+    } catch (e) {
+      debugPrint("❌ Error retrieving system token: $e");
+      return Constants.defaultApiToken;
     }
   }
 
@@ -119,42 +160,6 @@ class ApiService {
       return {"system_token": Constants.defaultApiToken};
     }
   }
-
-  Future<String> getSystemToken() async {
-    // Check if we already have a cached token
-    if (_systemToken != null && _systemToken!.isNotEmpty) {
-      return _systemToken!;
-    }
-
-    try {
-      // Try to fetch admin data which contains the token
-      final adminData = await fetchAdminData();
-
-      // Safely extract token using bracket notation
-      if (adminData != null && adminData.containsKey('system_token')) {
-        _systemToken = adminData['system_token'];
-
-        // If token is non-empty, use it
-        if (_systemToken != null && _systemToken!.isNotEmpty) {
-          debugPrint(
-            "🔑 Token retrieved: ${_systemToken!.length > 10 ? _systemToken!.substring(0, 10) + '...' : _systemToken}",
-          );
-          return _systemToken!;
-        }
-      }
-
-      // If we get here, either adminData was null or token was empty
-      // Fall back to default token
-      debugPrint("⚠️ Using default token as no valid token was found");
-      return Constants.defaultApiToken;
-    } catch (e) {
-      debugPrint("❌ Error retrieving system token: $e");
-      return Constants.defaultApiToken;
-    }
-  }
-
-  // Modified getDeliveryFee method in ApiService class
-  // Add this to your existing ApiService.dart file
 
   Future<int> getDeliveryFee() async {
     debugPrint(
@@ -276,6 +281,288 @@ class ApiService {
       debugPrint("❌ Error fetching admin data for delivery fee: $e");
       // Return 0 as a fallback
       return 0;
+    }
+  }
+
+  // User authentication functions (modified for proper caching)
+  Future<Map<String, dynamic>?> loginUser(String phone, String password) async {
+    try {
+      debugPrint('🔑 Attempting login with phone: $phone');
+
+      // Clean the phone number (remove +, spaces)
+      String cleanPhone = phone.replaceAll("+", "").replaceAll(" ", "").trim();
+
+      final response = await _dio.get(
+        'https://joinposter.com/api/clients.getClients',
+        queryParameters: {'token': await getSystemToken()},
+      );
+
+      if (response.statusCode == 200 && response.data["response"] != null) {
+        final List<dynamic> clients = response.data["response"];
+
+        // Find client with matching phone
+        final client = clients.firstWhere(
+          (c) => c["phone_number"] == cleanPhone,
+          orElse: () => null,
+        );
+
+        if (client != null) {
+          // Extract password from JSON comment field
+          String? comment = client["comment"];
+          String extractedPassword = "";
+
+          if (comment != null && comment.isNotEmpty) {
+            try {
+              // Parse the JSON comment
+              final commentJson = jsonDecode(comment);
+              extractedPassword = commentJson["password"] ?? "";
+            } catch (e) {
+              debugPrint('❌ Error parsing comment JSON: $e');
+            }
+          }
+
+          if (extractedPassword == password) {
+            // Cache the client data indefinitely (no timestamp-based expiration)
+            _cacheClientData(client, permanent: true);
+
+            // No need to fetch admin data after login, only on registration
+
+            debugPrint('✅ Login successful for user: ${client["lastname"]}');
+            return client;
+          } else {
+            debugPrint('❌ Password mismatch');
+            return null;
+          }
+        }
+      }
+
+      debugPrint('❌ User not found or invalid response');
+      return null;
+    } catch (e) {
+      debugPrint('❌ Login error: $e');
+      return null;
+    }
+  }
+
+  Future<int?> registerUser(String name, String phone, String password) async {
+    try {
+      debugPrint('🔑 Attempting registration for: $name, $phone');
+
+      // Clean the phone number (remove +, spaces)
+      String cleanPhone = phone.replaceAll("+", "").replaceAll(" ", "").trim();
+
+      // Create JSON string for comment
+      final commentJson = jsonEncode({"password": password});
+
+      final response = await _dio.post(
+        'https://joinposter.com/api/clients.createClient',
+        queryParameters: {'token': await getSystemToken()},
+        data: {
+          'client_name': name,
+          'client_groups_id_client': 1,
+          'phone': cleanPhone,
+          'comment': commentJson, // Use JSON string
+        },
+      );
+
+      if (response.statusCode == 200 && response.data["response"] != null) {
+        final int clientId = response.data["response"];
+
+        // After registration, get the full client data
+        final clientData = await getClientById(clientId);
+        if (clientData != null) {
+          // Cache the client data indefinitely
+          _cacheClientData(clientData, permanent: true);
+
+          // After successful registration, fetch admin data to update caches
+          await fetchAdminFromServer();
+        }
+
+        debugPrint('✅ Registration successful with ID: $clientId');
+        return clientId;
+      }
+
+      debugPrint('❌ Registration failed: ${response.data}');
+      return null;
+    } catch (e) {
+      debugPrint('❌ Registration error: $e');
+      return null;
+    }
+  }
+
+  // Method to fetch admin data after registration
+  Future<void> fetchAdminFromServer() async {
+    try {
+      final userId = Constants.userId;
+      final apiBaseUrl = Constants.apiBaseUrl;
+
+      debugPrint('🔄 Updating admin data from server after registration...');
+
+      // Use the correct endpoint as specified: /public/admins/{userId}
+      final response = await _dio
+          .get('$apiBaseUrl/public/admins/$userId')
+          .timeout(Duration(seconds: 10));
+
+      if (response.statusCode == 200 && response.data != null) {
+        debugPrint('✅ Admin data updated successfully after registration');
+
+        // Cache the admin data - could be processed further if needed
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('admin_data_full', jsonEncode(response.data));
+      }
+    } catch (e) {
+      debugPrint('❌ Error updating admin data after registration: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>?> getClientById(int clientId) async {
+    try {
+      final response = await _dio.get(
+        'https://joinposter.com/api/clients.getClient',
+        queryParameters: {
+          'token': await getSystemToken(),
+          'client_id': clientId,
+        },
+      );
+
+      if (response.statusCode == 200 && response.data["response"] != null) {
+        final clientData = response.data["response"];
+        return clientData;
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('❌ Error fetching client data: $e');
+      return null;
+    }
+  }
+
+  Future<void> _cacheClientData(
+    Map<String, dynamic> clientData, {
+    bool permanent = false,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Save essential client info
+      await prefs.setBool("isLoggedIn", true);
+      await prefs.setInt(
+        "client_id",
+        int.parse(clientData["client_id"] ?? "0"),
+      );
+      await prefs.setString("name", clientData["lastname"] ?? "");
+      await prefs.setString("phone", clientData["phone_number"] ?? "");
+      await prefs.setString("bonus", clientData["bonus"] ?? "0");
+      await prefs.setString("discount", clientData["discount_per"] ?? "0");
+
+      // Cache addresses if available
+      if (clientData["addresses"] != null &&
+          clientData["addresses"].isNotEmpty) {
+        List<dynamic> addresses = clientData["addresses"];
+        List<String> addressList =
+            addresses
+                .map<String>((addr) => (addr["address1"] ?? "").toString())
+                .where((addr) => addr.isNotEmpty)
+                .toList();
+
+        await prefs.setStringList("addresses", addressList);
+      }
+
+      // For permanent cache (after login/register), store without timestamp
+      if (permanent) {
+        await prefs.setString("client_data", jsonEncode(clientData));
+        debugPrint('✅ Client data cached permanently');
+      } else {
+        // Store with timestamp for normal cache invalidation
+        final cacheObject = {
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'data': clientData,
+        };
+        await prefs.setString(
+          "client_data_with_timestamp",
+          jsonEncode(cacheObject),
+        );
+        debugPrint('✅ Client data cached with timestamp');
+      }
+    } catch (e) {
+      debugPrint('❌ Error caching client data: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>?> getLoggedInClientData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+      if (!isLoggedIn) {
+        return null;
+      }
+
+      // Check if we need to force refresh
+      if (_forceRefreshClientData) {
+        debugPrint('🔄 Forcing refresh of client data from server');
+        _forceRefreshClientData = false; // Reset the flag
+
+        // Fetch fresh data from server
+        final clientId = prefs.getInt('client_id');
+        if (clientId != null) {
+          final freshData = await getClientById(clientId);
+          if (freshData != null) {
+            // Cache the fresh data (as permanent)
+            _cacheClientData(freshData, permanent: true);
+            return freshData;
+          }
+        }
+      }
+
+      // Try to get permanent cached data first
+      final String? cachedData = prefs.getString('client_data');
+      if (cachedData != null && cachedData.isNotEmpty) {
+        debugPrint('✅ Using permanently cached client data');
+        return jsonDecode(cachedData);
+      }
+
+      // If no permanent cache, try timestamp-based cache
+      final String? timestampCachedData = prefs.getString(
+        'client_data_with_timestamp',
+      );
+      if (timestampCachedData != null && timestampCachedData.isNotEmpty) {
+        final cacheObject = jsonDecode(timestampCachedData);
+        debugPrint('✅ Using timestamp-based client data cache');
+        return cacheObject['data'];
+      }
+
+      // If we have client ID but no cached data, fetch from API
+      final clientId = prefs.getInt('client_id');
+      if (clientId != null) {
+        return await getClientById(clientId);
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('❌ Error retrieving client data: $e');
+      return null;
+    }
+  }
+
+  Future<void> logoutUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Clear all client-related data
+      await prefs.setBool("isLoggedIn", false);
+      await prefs.remove("client_id");
+      await prefs.remove("name");
+      await prefs.remove("phone");
+      await prefs.remove("bonus");
+      await prefs.remove("discount");
+      await prefs.remove("addresses");
+      await prefs.remove("client_data");
+      await prefs.remove("client_data_with_timestamp");
+
+      debugPrint('✅ Client data cleared successfully');
+    } catch (e) {
+      debugPrint('❌ Error clearing client data: $e');
     }
   }
 
@@ -514,7 +801,7 @@ class ApiService {
         final Map<String, dynamic> spotsCache = jsonDecode(cachedData);
         final int timestamp = spotsCache['timestamp'] ?? 0;
 
-        // Check if cache is still valid (1 day)
+        // Check if cache is still valid (10 days)
         if (DateTime.now().millisecondsSinceEpoch - timestamp <
             SPOTS_CACHE_DURATION) {
           debugPrint('✅ Using cached spots data');
@@ -577,215 +864,6 @@ class ApiService {
       return []; // Return empty list if all fails
     }
   }
-
-  // User authentication functions
-  Future<Map<String, dynamic>?> loginUser(String phone, String password) async {
-    try {
-      debugPrint('🔑 Attempting login with phone: $phone');
-
-      // Clean the phone number (remove +, spaces)
-      String cleanPhone = phone.replaceAll("+", "").replaceAll(" ", "").trim();
-
-      final response = await _dio.get(
-        'https://joinposter.com/api/clients.getClients',
-        queryParameters: {'token': await getSystemToken()},
-      );
-
-      if (response.statusCode == 200 && response.data["response"] != null) {
-        final List<dynamic> clients = response.data["response"];
-
-        // Find client with matching phone
-        final client = clients.firstWhere(
-          (c) => c["phone_number"] == cleanPhone,
-          orElse: () => null,
-        );
-
-        if (client != null) {
-          // Extract password from JSON comment field
-          String? comment = client["comment"];
-          String extractedPassword = "";
-
-          if (comment != null && comment.isNotEmpty) {
-            try {
-              // Parse the JSON comment
-              final commentJson = jsonDecode(comment);
-              extractedPassword = commentJson["password"] ?? "";
-            } catch (e) {
-              debugPrint('❌ Error parsing comment JSON: $e');
-            }
-          }
-
-          if (extractedPassword == password) {
-            // Cache the client data
-            _cacheClientData(client);
-
-            debugPrint('✅ Login successful for user: ${client["lastname"]}');
-            return client;
-          } else {
-            debugPrint('❌ Password mismatch');
-            return null;
-          }
-        }
-      }
-
-      debugPrint('❌ User not found or invalid response');
-      return null;
-    } catch (e) {
-      debugPrint('❌ Login error: $e');
-      return null;
-    }
-  }
-
-  Future<int?> registerUser(String name, String phone, String password) async {
-    try {
-      debugPrint('🔑 Attempting registration for: $name, $phone');
-
-      // Clean the phone number (remove +, spaces)
-      String cleanPhone = phone.replaceAll("+", "").replaceAll(" ", "").trim();
-
-      // Create JSON string for comment
-      final commentJson = jsonEncode({"password": password});
-
-      final response = await _dio.post(
-        'https://joinposter.com/api/clients.createClient',
-        queryParameters: {'token': await getSystemToken()},
-        data: {
-          'client_name': name,
-          'client_groups_id_client': 1,
-          'phone': cleanPhone,
-          'comment': commentJson, // Use JSON string
-        },
-      );
-
-      if (response.statusCode == 200 && response.data["response"] != null) {
-        final int clientId = response.data["response"];
-
-        // After registration, get the full client data
-        final clientData = await getClientById(clientId);
-        if (clientData != null) {
-          // Cache the client data
-          _cacheClientData(clientData);
-        }
-
-        debugPrint('✅ Registration successful with ID: $clientId');
-        return clientId;
-      }
-
-      debugPrint('❌ Registration failed: ${response.data}');
-      return null;
-    } catch (e) {
-      debugPrint('❌ Registration error: $e');
-      return null;
-    }
-  }
-
-  Future<Map<String, dynamic>?> getClientById(int clientId) async {
-    try {
-      final response = await _dio.get(
-        'https://joinposter.com/api/clients.getClient',
-        queryParameters: {
-          'token': await getSystemToken(),
-          'client_id': clientId,
-        },
-      );
-
-      if (response.statusCode == 200 && response.data["response"] != null) {
-        final clientData = response.data["response"];
-        return clientData;
-      }
-
-      return null;
-    } catch (e) {
-      debugPrint('❌ Error fetching client data: $e');
-      return null;
-    }
-  }
-
-  Future<void> _cacheClientData(Map<String, dynamic> clientData) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Save essential client info
-      await prefs.setBool("isLoggedIn", true);
-      await prefs.setInt(
-        "client_id",
-        int.parse(clientData["client_id"] ?? "0"),
-      );
-      await prefs.setString("name", clientData["lastname"] ?? "");
-      await prefs.setString("phone", clientData["phone_number"] ?? "");
-      await prefs.setString("bonus", clientData["bonus"] ?? "0");
-      await prefs.setString("discount", clientData["discount_per"] ?? "0");
-
-      // Cache addresses if available
-      if (clientData["addresses"] != null &&
-          clientData["addresses"].isNotEmpty) {
-        List<dynamic> addresses = clientData["addresses"];
-        List<String> addressList =
-            addresses
-                .map<String>((addr) => (addr["address1"] ?? "").toString())
-                .where((addr) => addr.isNotEmpty)
-                .toList();
-
-        await prefs.setStringList("addresses", addressList);
-      }
-
-      // Cache the full response for advanced usage
-      await prefs.setString("client_data", jsonEncode(clientData));
-
-      debugPrint('✅ Client data cached successfully');
-    } catch (e) {
-      debugPrint('❌ Error caching client data: $e');
-    }
-  }
-
-  Future<Map<String, dynamic>?> getLoggedInClientData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-
-      if (!isLoggedIn) {
-        return null;
-      }
-
-      final String? cachedData = prefs.getString('client_data');
-      if (cachedData != null && cachedData.isNotEmpty) {
-        return jsonDecode(cachedData);
-      }
-
-      // If we have client ID but no cached data, fetch from API
-      final clientId = prefs.getInt('client_id');
-      if (clientId != null) {
-        return await getClientById(clientId);
-      }
-
-      return null;
-    } catch (e) {
-      debugPrint('❌ Error retrieving client data: $e');
-      return null;
-    }
-  }
-
-  Future<void> logoutUser() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Clear all client-related data
-      await prefs.setBool("isLoggedIn", false);
-      await prefs.remove("client_id");
-      await prefs.remove("name");
-      await prefs.remove("phone");
-      await prefs.remove("bonus");
-      await prefs.remove("discount");
-      await prefs.remove("addresses");
-      await prefs.remove("client_data");
-
-      debugPrint('✅ Client data cleared successfully');
-    } catch (e) {
-      debugPrint('❌ Error clearing client data: $e');
-    }
-  }
-
-  // Update the mock orders to include proper spot information for takeaway orders
 
   // Mock orders for order history
   Future<List<OrderModel>> fetchOrderHistory() async {

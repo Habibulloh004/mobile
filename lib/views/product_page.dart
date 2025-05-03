@@ -641,12 +641,11 @@ class _ProductPageState extends State<ProductPage>
                                                         content: Text(
                                                           "Товар добавлен в корзину",
                                                         ),
+                                                        backgroundColor:
+                                                            Colors.green,
                                                         duration: Duration(
-                                                          seconds: 1,
+                                                          seconds: 2,
                                                         ),
-                                                        behavior:
-                                                            SnackBarBehavior
-                                                                .floating,
                                                       ),
                                                     );
                                                   }

@@ -153,7 +153,7 @@ class OrderConfirmationPage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          formatPrice(subtotal),
+                          formatPrice(total + deliveryFee + (appliedBonus.toInt() / 100)),
                           style: TextStyle(
                             fontSize: Constants.fontSizeRegular,
                             fontWeight: FontWeight.bold,
@@ -204,7 +204,7 @@ class OrderConfirmationPage extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '- ${formatPrice(appliedBonus, subtract: true)}',
+                              '- ${formatPrice(appliedBonus.toInt(), subtract: true)}',
                               style: TextStyle(
                                 fontSize: Constants.fontSizeRegular,
                                 fontWeight: FontWeight.bold,
@@ -238,58 +238,6 @@ class OrderConfirmationPage extends StatelessWidget {
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Bonus earned section - calculate earned bonus based on total (approx 5%)
-              SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: ColorUtils.primaryColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.green.withOpacity(0.5),
-                    width: 1.5,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.savings, color: Colors.green[700], size: 24),
-                        SizedBox(width: 8),
-                        Text(
-                          'Начислено бонусов',
-                          style: TextStyle(
-                            fontSize: Constants.fontSizeMedium,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 8),
-                    // Calculate earned bonus (5% of subtotal)
-                    Text(
-                      formatPrice(subtotal ~/ 20),
-                      style: TextStyle(
-                        fontSize: Constants.fontSizeLarge,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[700],
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Бонусы будут начислены на ваш счет после выполнения заказа',
-                      style: TextStyle(
-                        fontSize: Constants.fontSizeSmall,
-                        color: Colors.grey[600],
-                      ),
                     ),
                   ],
                 ),

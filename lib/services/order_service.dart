@@ -1,4 +1,4 @@
-// lib/services/order_service.dart
+// lib/services/order_service.dart - Fixed product data preservation
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +15,7 @@ class OrderService {
   /// Submits an order to Poster API
   ///
   /// Returns the order ID if successful, null otherwise
-  Future<String?> submitOrder({
+  Future<Map<String, dynamic>?> submitOrder({
     required List<Map<String, dynamic>> cartItems,
     required String phone,
     required String deliveryType, // "delivery" or "take away"
@@ -107,11 +107,25 @@ class OrderService {
         data: payload,
       );
 
-      if (response.statusCode == 200 && response.data != null) {
-        // Extract order ID from response
-        final orderId = response.data["response"]?.toString();
-        debugPrint('✅ Order submitted successfully with ID: $orderId');
-        return orderId;
+      if (response.statusCode == 200 && response.data["response"] != null) {
+        // Extract order ID and full response for passing to the confirmation page
+        final responseData = response.data["response"];
+        debugPrint('✅ Order submitted successfully with ID: $responseData');
+
+        // Create result object with order ID and original cart items
+        // This ensures we maintain the original item data for the confirmation page
+        return {
+          "order_id": responseData["incoming_order_id"]?.toString() ?? "",
+          "items": cartItems, // Pass the original cart items
+          "total": 0, // Will be calculated on confirmation page
+          "subtotal": 0, // Will be calculated on confirmation page
+          "delivery_fee": deliveryFee,
+          "applied_bonus": appliedBonus,
+          "address": address,
+          "is_delivery": deliveryType == "delivery",
+          "payment_method": paymentMethod,
+          "spot_id": spotId,
+        };
       } else {
         debugPrint(
           '❌ Failed to submit order: ${response.statusCode} - ${response.data}',

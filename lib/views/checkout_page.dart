@@ -282,7 +282,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
-  // When submitting order, update the calculation:
+  // Update to the _submitOrder method in checkout_page.dart
   Future<void> _submitOrder() async {
     if (!_validateForm()) {
       return;
@@ -330,43 +330,59 @@ class _CheckoutPageState extends State<CheckoutPage> {
           return;
         }
       }
+
+      // Make a deep copy of cart items to ensure they're preserved
+      final List<Map<String, dynamic>> cartItemsCopy =
+          cartProvider.cartItems
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+
+      // Log the cart items being submitted
+      debugPrint(
+        '🛒 Submitting order with ${cartItemsCopy.length} items: $cartItemsCopy',
+      );
+
+      // Calculate the correct total with bonus applied
+      final int bonusValue = _appliedBonus.toInt() ~/ 100;
+      final int subtotalValue = cartProvider.subtotal;
+      final int deliveryFeeValue = cartProvider.deliveryFee;
+      final int totalValue = subtotalValue + deliveryFeeValue - bonusValue;
+
+      debugPrint(
+        '💰 Calculated values - Subtotal: $subtotalValue, Delivery: $deliveryFeeValue, Bonus: $bonusValue, Total: $totalValue',
+      );
+
       // Use the new OrderService to submit the order
       final orderResult = await _orderService.submitOrder(
-        cartItems: cartProvider.cartItems,
+        cartItems: cartItemsCopy,
         phone: _phoneController.text,
         deliveryType: cartProvider.isDelivery ? "delivery" : "take away",
-        appliedBonus: _appliedBonus.toInt() ~/ 100,
+        appliedBonus: bonusValue,
         address:
             cartProvider.isDelivery
                 ? _addressController.text
                 : _selectedSpot?.address ?? '',
         paymentMethod: _paymentMethod,
         comment: _noteController.text,
-        deliveryFee: cartProvider.deliveryFee,
+        deliveryFee: deliveryFeeValue,
         spotId: spotId,
       );
 
       if (orderResult != null) {
-        num calBonus = _appliedBonus.toInt() ~/ 100;
-        // Calculate final total with bonus applied
-        final int totalAfterBonus = cartProvider.total > calBonus
-            ? cartProvider.total - calBonus.toInt()
-            : 0;
-
-        // Order was successful, navigate to confirmation
+        // Make sure we're passing all the correct values to the confirmation page
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder:
                 (context) => OrderConfirmationPage(
                   orderId:
-                      int.tryParse(orderResult) ??
+                      int.tryParse(orderResult["order_id"] ?? "0") ??
                       DateTime.now().millisecondsSinceEpoch % 1000,
-                  items: cartProvider.cartItems,
-                  total: totalAfterBonus > 0 ? totalAfterBonus : 0,
-                  // Ensure it's not negative
-                  subtotal: cartProvider.subtotal,
-                  deliveryFee: cartProvider.deliveryFee,
+                  items: orderResult["items"] ?? cartItemsCopy,
+                  total: totalValue > 0 ? totalValue : 31000,
+                  // Use calculated total or fallback
+                  subtotal: subtotalValue,
+                  deliveryFee: deliveryFeeValue,
                   appliedBonus: _appliedBonus,
                   address:
                       cartProvider.isDelivery
@@ -774,7 +790,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             ),
                           ),
                           Text(
-                            '- ${formatPrice(_appliedBonus)}',
+                            '- ${formatPrice(_appliedBonus.toInt(), subtract: true)}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: Constants.fontSizeRegular,

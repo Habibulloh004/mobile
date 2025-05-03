@@ -89,29 +89,6 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  // Ensure delivery fee is loaded (useful before checkout)
-  Future<int> ensureDeliveryFeeLoaded() async {
-    debugPrint('📦 Ensuring delivery fee is loaded');
-    await refreshDeliveryFee(); // Always refresh for reliability
-    return _deliveryFee;
-  }
-
-  // Set delivery method
-  void setDeliveryMethod(bool isDelivery) {
-    debugPrint(
-      '🚚 Setting delivery method: ${isDelivery ? "Delivery" : "Pickup"}',
-    );
-    _isDelivery = isDelivery;
-
-    // Ensure delivery fee is loaded when switching to delivery
-    if (isDelivery) {
-      refreshDeliveryFee(); // Always refresh when switching to delivery
-    }
-
-    notifyListeners();
-    _saveCartToCache();
-  }
-
   // Load cart from local storage
   Future<void> _loadCartFromCache() async {
     try {
@@ -374,16 +351,6 @@ class CartProvider with ChangeNotifier {
     return total;
   }
 
-  // Get total price including delivery (as int)
-  int get total {
-    final currentDeliveryFee =
-        deliveryFee; // Use the getter which handles delivery/pickup mode
-    debugPrint(
-      '🧮 Cart total calculation: subtotal($subtotal) + deliveryFee($currentDeliveryFee) = ${subtotal + currentDeliveryFee}',
-    );
-    return subtotal + currentDeliveryFee;
-  }
-
   // Clear all items from cart
   void clearCart() {
     _cartItems.clear();
@@ -425,7 +392,18 @@ class CartProvider with ChangeNotifier {
     addItem(cartItem);
   }
 
-  // Prepare for checkout by ensuring delivery fee is loaded
+  // Modified total getter in CartProvider
+  // Get total price including delivery (as int)
+  int get total {
+    final currentDeliveryFee =
+        deliveryFee; // Use the getter which handles delivery/pickup mode
+    debugPrint(
+      '🧮 Cart total calculation: subtotal($subtotal) + deliveryFee($currentDeliveryFee) = ${subtotal + currentDeliveryFee}',
+    );
+    return subtotal + currentDeliveryFee;
+  }
+
+  // Ensure delivery fee is loaded - add to this method
   Future<void> prepareForCheckout() async {
     debugPrint('🛒 Preparing cart for checkout...');
 
@@ -437,5 +415,39 @@ class CartProvider with ChangeNotifier {
     debugPrint(
       '🛒 Cart ready for checkout with delivery fee: $_deliveryFee (applied: ${_isDelivery ? "yes" : "no"})',
     );
+  }
+
+  // Improved handling of delivery fee in ensureDeliveryFeeLoaded method
+  Future<int> ensureDeliveryFeeLoaded() async {
+    debugPrint('📦 Ensuring delivery fee is loaded');
+
+    // Only apply refresh if delivery is selected
+    if (_isDelivery) {
+      await refreshDeliveryFee(); // Always refresh for reliability
+    } else {
+      // If pickup is selected, make sure delivery fee is 0
+      _deliveryFee = 0;
+    }
+
+    return _isDelivery ? _deliveryFee : 0;
+  }
+
+  // Make sure delivery method updates handle the fee properly
+  void setDeliveryMethod(bool isDelivery) {
+    debugPrint(
+      '🚚 Setting delivery method: ${isDelivery ? "Delivery" : "Pickup"}',
+    );
+    _isDelivery = isDelivery;
+
+    // Ensure delivery fee is loaded when switching to delivery
+    if (isDelivery) {
+      refreshDeliveryFee(); // Always refresh when switching to delivery
+    } else {
+      // When switching to pickup, explicitly set delivery fee to 0
+      _deliveryFee = 0;
+    }
+
+    notifyListeners();
+    _saveCartToCache();
   }
 }

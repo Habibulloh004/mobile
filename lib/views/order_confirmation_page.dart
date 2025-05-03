@@ -1,3 +1,4 @@
+// lib/views/order_confirmation_page.dart
 import 'package:flutter/material.dart';
 import '../utils/color_utils.dart';
 import '../constant/index.dart';
@@ -10,7 +11,7 @@ class OrderConfirmationPage extends StatelessWidget {
   final int total;
   final int subtotal;
   final int deliveryFee;
-  final int appliedBonus; // This is already divided by 100
+  final int appliedBonus; // This is already the raw value without division
   final String address;
   final bool isDelivery;
   final String paymentMethod;
@@ -77,20 +78,6 @@ class OrderConfirmationPage extends StatelessWidget {
                   color: ColorUtils.secondaryColor,
                 ),
               ),
-
-              SizedBox(height: 8),
-
-              // Status message
-              // Text(
-              //   isDelivery
-              //       ? 'Ожидайте доставку в течение 60 минут'
-              //       : 'Ваш заказ будет готов через 20 минут',
-              //   textAlign: TextAlign.center,
-              //   style: TextStyle(
-              //     fontSize: Constants.fontSizeRegular,
-              //     color: Colors.grey[600],
-              //   ),
-              // ),
 
               SizedBox(height: 32),
 
@@ -202,7 +189,7 @@ class OrderConfirmationPage extends StatelessWidget {
                         ),
                       ),
 
-                    // Applied bonus (if any) - using formatPrice to handle division by 100
+                    // Applied bonus (if any)
                     if (appliedBonus > 0)
                       Padding(
                         padding: EdgeInsets.only(top: 8),
@@ -217,7 +204,7 @@ class OrderConfirmationPage extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '- ${formatPrice(appliedBonus)}',
+                              '- ${formatPrice(appliedBonus, subtract: true)}',
                               style: TextStyle(
                                 fontSize: Constants.fontSizeRegular,
                                 fontWeight: FontWeight.bold,
@@ -256,8 +243,6 @@ class OrderConfirmationPage extends StatelessWidget {
                 ),
               ),
 
-              // Rest of the UI remains unchanged
-
               // Bonus earned section - calculate earned bonus based on total (approx 5%)
               SizedBox(height: 24),
               Container(
@@ -290,7 +275,6 @@ class OrderConfirmationPage extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     // Calculate earned bonus (5% of subtotal)
-                    // Already in raw format (divided by 100)
                     Text(
                       formatPrice(subtotal ~/ 20),
                       style: TextStyle(

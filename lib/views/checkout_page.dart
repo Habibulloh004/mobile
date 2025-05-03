@@ -282,6 +282,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
+  // When submitting order, update the calculation:
   Future<void> _submitOrder() async {
     if (!_validateForm()) {
       return;
@@ -329,13 +330,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
           return;
         }
       }
-
       // Use the new OrderService to submit the order
       final orderResult = await _orderService.submitOrder(
         cartItems: cartProvider.cartItems,
         phone: _phoneController.text,
         deliveryType: cartProvider.isDelivery ? "delivery" : "take away",
-        appliedBonus: _appliedBonus,
+        appliedBonus: _appliedBonus.toInt() ~/ 100,
         address:
             cartProvider.isDelivery
                 ? _addressController.text
@@ -347,8 +347,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
 
       if (orderResult != null) {
+        num calBonus = _appliedBonus.toInt() ~/ 100;
         // Calculate final total with bonus applied
-        final int totalWithBonus = cartProvider.total - _appliedBonus;
+        final int totalAfterBonus = cartProvider.total > calBonus
+            ? cartProvider.total - calBonus.toInt()
+            : 0;
 
         // Order was successful, navigate to confirmation
         Navigator.pushReplacement(
@@ -360,7 +363,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       int.tryParse(orderResult) ??
                       DateTime.now().millisecondsSinceEpoch % 1000,
                   items: cartProvider.cartItems,
-                  total: totalWithBonus,
+                  total: totalAfterBonus > 0 ? totalAfterBonus : 0,
+                  // Ensure it's not negative
                   subtotal: cartProvider.subtotal,
                   deliveryFee: cartProvider.deliveryFee,
                   appliedBonus: _appliedBonus,

@@ -441,15 +441,102 @@ class ApiService {
         },
       );
 
-      if (response.statusCode == 200 && response.data["response"] != null) {
-        final clientData = response.data["response"];
-        return clientData;
+      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        // Check if response contains the expected structure
+        if (responseData.containsKey("response")) {
+          final responseContent = responseData["response"];
+
+          // Handle different response formats
+          if (responseContent is Map<String, dynamic>) {
+            // Direct map format
+            return responseContent;
+          } else if (responseContent is List && responseContent.isNotEmpty) {
+            // List format - get first item if it's a Map
+            if (responseContent[0] is Map<String, dynamic>) {
+              return responseContent[0];
+            } else {
+              debugPrint(
+                '⚠️ First item in response list is not a Map: ${responseContent[0]?.runtimeType}',
+              );
+            }
+          } else {
+            debugPrint(
+              '⚠️ Unexpected response format: ${responseContent.runtimeType}',
+            );
+          }
+        } else {
+          debugPrint('⚠️ Response does not contain "response" key');
+        }
       }
 
+      // If we reach here, something went wrong with the response format
+      debugPrint('⚠️ Invalid client data response format');
       return null;
     } catch (e) {
-      debugPrint('❌ Error fetching client data: $e');
+      debugPrint('❌ Error fetching client by ID: $e');
       return null;
+    }
+  }
+
+  Future<int> fetchClientBonus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final clientId = prefs.getInt('client_id');
+
+      if (clientId == null) {
+        debugPrint('⚠️ No client ID found for bonus fetch');
+        return 0;
+      }
+
+      final response = await _dio.get(
+        'https://joinposter.com/api/clients.getClient',
+        queryParameters: {
+          'token': await getSystemToken(),
+          'client_id': clientId,
+        },
+      );
+
+      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        if (responseData.containsKey("response")) {
+          dynamic clientData = responseData["response"];
+          Map<String, dynamic>? clientMap;
+
+          // Handle different response formats
+          if (clientData is Map<String, dynamic>) {
+            clientMap = clientData;
+          } else if (clientData is List &&
+              clientData.isNotEmpty &&
+              clientData[0] is Map<String, dynamic>) {
+            clientMap = clientData[0];
+          }
+
+          if (clientMap != null && clientMap.containsKey("bonus")) {
+            final bonusStr = clientMap["bonus"]?.toString() ?? "0";
+            final bonus = int.tryParse(bonusStr) ?? 0;
+
+            // Update the stored bonus value
+            await prefs.setString('bonus', bonus.toString());
+
+            debugPrint('✅ Fetched and updated bonus value: $bonus');
+            return bonus;
+          }
+        }
+      }
+
+      // If we reach here, fall back to cached bonus
+      final bonusStr = prefs.getString('bonus') ?? "0";
+      return int.tryParse(bonusStr) ?? 0;
+    } catch (e) {
+      debugPrint('❌ Error fetching client bonus: $e');
+
+      // Fall back to cached bonus
+      final prefs = await SharedPreferences.getInstance();
+      final bonusStr = prefs.getString('bonus') ?? "0";
+      return int.tryParse(bonusStr) ?? 0;
     }
   }
 
@@ -540,11 +627,16 @@ class ApiService {
         // Fetch fresh data from server
         final clientId = prefs.getInt('client_id');
         if (clientId != null) {
-          final freshData = await getClientById(clientId);
-          if (freshData != null) {
-            // Cache the fresh data (as permanent)
-            _cacheClientData(freshData, permanent: true);
-            return freshData;
+          try {
+            final freshData = await getClientById(clientId);
+            if (freshData != null && freshData is Map<String, dynamic>) {
+              // Cache the fresh data (as permanent)
+              _cacheClientData(freshData, permanent: true);
+              return freshData;
+            }
+          } catch (e) {
+            debugPrint('❌ Error fetching fresh client data: $e');
+            // Fall through to use cached data
           }
         }
       }
@@ -553,25 +645,56 @@ class ApiService {
       final String? cachedData = prefs.getString('client_data');
       if (cachedData != null && cachedData.isNotEmpty) {
         debugPrint('✅ Using permanently cached client data');
-        return jsonDecode(cachedData);
+        try {
+          final parsed = jsonDecode(cachedData);
+          if (parsed is Map<String, dynamic>) {
+            return parsed;
+          } else {
+            debugPrint(
+              '⚠️ Cached client data is not a Map: ${parsed.runtimeType}',
+            );
+          }
+        } catch (e) {
+          debugPrint('❌ Error parsing cached client data: $e');
+        }
       }
 
-      // If no permanent cache, try timestamp-based cache
+      // If no permanent cache or invalid format, try timestamp-based cache
       final String? timestampCachedData = prefs.getString(
         'client_data_with_timestamp',
       );
       if (timestampCachedData != null && timestampCachedData.isNotEmpty) {
-        final cacheObject = jsonDecode(timestampCachedData);
-        debugPrint('✅ Using timestamp-based client data cache');
-        return cacheObject['data'];
+        try {
+          final cacheObject = jsonDecode(timestampCachedData);
+          if (cacheObject is Map<String, dynamic> &&
+              cacheObject.containsKey('data') &&
+              cacheObject['data'] is Map<String, dynamic>) {
+            debugPrint('✅ Using timestamp-based client data cache');
+            return cacheObject['data'];
+          }
+        } catch (e) {
+          debugPrint('❌ Error parsing timestamp-based client data: $e');
+        }
       }
 
       // If we have client ID but no cached data, fetch from API
       final clientId = prefs.getInt('client_id');
       if (clientId != null) {
-        return await getClientById(clientId);
+        try {
+          final apiData = await getClientById(clientId);
+          if (apiData != null && apiData is Map<String, dynamic>) {
+            return apiData;
+          } else {
+            debugPrint(
+              '⚠️ API returned non-Map client data: ${apiData?.runtimeType}',
+            );
+          }
+        } catch (e) {
+          debugPrint('❌ Error fetching client data from API: $e');
+        }
       }
 
+      // If we reach here, we failed to get valid client data
       return null;
     } catch (e) {
       debugPrint('❌ Error retrieving client data: $e');
@@ -1065,6 +1188,67 @@ class ApiService {
     } catch (e) {
       // Return current date if parsing fails
       return DateTime.now();
+    }
+  }
+
+  // Add this method to the ApiService class in lib/core/api_service.dart
+
+  Future<void> refreshClientData() async {
+    debugPrint('🔄 Forcing refresh of client data');
+    invalidateClientCache(); // Mark cache for refreshing
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final clientId = prefs.getInt('client_id');
+
+      if (clientId != null) {
+        // Fetch fresh data directly from server
+        final freshData = await getClientById(clientId);
+
+        if (freshData != null) {
+          // Cache the fresh data (as permanent)
+          await _cacheClientData(freshData, permanent: true);
+
+          // Specifically update the bonus value
+          if (freshData.containsKey("bonus")) {
+            final bonusStr = freshData["bonus"] ?? "0";
+            final bonus = int.tryParse(bonusStr) ?? 0;
+            await prefs.setString('bonus', bonus.toString());
+            debugPrint('✅ Updated bonus value: $bonus');
+          }
+
+          debugPrint('✅ Client data refreshed successfully');
+        } else {
+          debugPrint('❌ Failed to fetch fresh client data');
+        }
+      } else {
+        debugPrint('⚠️ No client ID found to refresh data');
+      }
+    } catch (e) {
+      debugPrint('❌ Error refreshing client data: $e');
+    }
+  }
+
+  // Add this helper method to interpret the bonus correctly for display
+  int getDisplayBonus(int rawBonus) {
+    // Bonus values are often stored as raw values (multiplied by 100)
+    // For display purposes, we divide by 100
+    return (rawBonus / 100).round();
+  }
+
+  // Method to get client bonus with forced refresh option
+  Future<int> getClientBonus({bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      await refreshClientData();
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bonusStr = prefs.getString('bonus') ?? "0";
+      return int.tryParse(bonusStr) ?? 0;
+    } catch (e) {
+      debugPrint('❌ Error retrieving client bonus: $e');
+      return 0;
     }
   }
 

@@ -32,19 +32,65 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadClientData();
   }
 
+  // Updated _loadClientData method for ProfilePage in lib/views/profile_page.dart
+
   Future<void> _loadClientData() async {
     try {
       setState(() {
         _isLoading = true;
       });
 
-      // Get client data from API service with cache already invalidated
+      // Directly fetch the bonus value first
+      try {
+        _bonus = await _apiService.fetchClientBonus();
+        debugPrint('✅ Loaded bonus value directly: $_bonus');
+      } catch (e) {
+        debugPrint('⚠️ Error loading bonus directly: $e');
+        // Continue with other data loading
+      }
+
+      // Get client data from API service
+      _apiService.invalidateClientCache(); // Force fresh data
       final clientData = await _apiService.getLoggedInClientData();
 
       if (clientData != null) {
-        _updateClientDataFromResponse(clientData);
+        setState(() {
+          _fullClientData = clientData;
+          _name =
+              clientData["lastname"] ?? clientData["firstname"] ?? "Без имени";
+          _phone = clientData["phone_number"] ?? clientData["phone"] ?? "";
+
+          // If bonus wasn't already loaded, try from client data
+          if (_bonus == 0 && clientData.containsKey("bonus")) {
+            final bonusStr = clientData["bonus"]?.toString() ?? "0";
+            _bonus = int.tryParse(bonusStr) ?? 0;
+            debugPrint('✅ Loaded bonus from client data: $_bonus');
+          }
+
+          _discount = clientData["discount_per"]?.toString() ?? "0";
+
+          // Extract addresses from the response
+          if (clientData["addresses"] != null &&
+              clientData["addresses"] is List) {
+            _addresses =
+                (clientData["addresses"] as List)
+                    .map(
+                      (addr) =>
+                          addr is Map
+                              ? (addr["address1"]?.toString() ?? "")
+                              : "",
+                    )
+                    .where((addr) => addr.isNotEmpty)
+                    .toList();
+          }
+
+          _isLoading = false;
+        });
+
+        // Format the phone number
+        _formatPhoneNumber();
       } else {
-        // Fallback to basic data from preferences if API fetch fails
+        // Fallback to basic data from preferences
         final prefs = await SharedPreferences.getInstance();
         final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
@@ -52,7 +98,14 @@ class _ProfilePageState extends State<ProfilePage> {
           setState(() {
             _name = prefs.getString('name') ?? "Без имени";
             _phone = prefs.getString('phone') ?? "";
-            _bonus = int.tryParse(prefs.getString('bonus') ?? "0") ?? 0;
+
+            // If bonus wasn't already loaded, try from prefs
+            if (_bonus == 0) {
+              final bonusStr = prefs.getString('bonus') ?? "0";
+              _bonus = int.tryParse(bonusStr) ?? 0;
+              debugPrint('✅ Loaded bonus from preferences: $_bonus');
+            }
+
             _discount = prefs.getString('discount') ?? "0";
             _addresses = prefs.getStringList('addresses') ?? [];
             _isLoading = false;
@@ -72,6 +125,7 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _isLoading = false;
       });
+      debugPrint('❌ Error loading client data: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Ошибка загрузки данных: $e")));
@@ -137,9 +191,31 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _refreshProfile() async {
-    // Force cache invalidation when manually refreshing
-    _apiService.invalidateClientCache();
-    await _loadClientData();
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Force refresh of client data including bonus
+      await _apiService.refreshClientData();
+
+      // Get the refreshed bonus
+      _bonus = await _apiService.getClientBonus();
+
+      // Load remaining client data
+      await _loadClientData();
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Ошибка при обновлении данных: $e")),
+      );
+    }
   }
 
   @override

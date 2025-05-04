@@ -112,18 +112,18 @@ class _AppSidebarState extends State<AppSidebar> {
                 );
               },
             ),
-            _buildMenuItemSvg(
-              context,
-              iconPath: 'assets/images/bonus.svg',
-              title: "Бонусы",
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigate to bonuses page
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Бонусы скоро будут доступны")),
-                );
-              },
-            ),
+            // _buildMenuItemSvg(
+            //   context,
+            //   iconPath: 'assets/images/bonus.svg',
+            //   title: "Бонусы",
+            //   onTap: () {
+            //     Navigator.pop(context);
+            //     // TODO: Navigate to bonuses page
+            //     ScaffoldMessenger.of(context).showSnackBar(
+            //       SnackBar(content: Text("Бонусы скоро будут доступны")),
+            //     );
+            //   },
+            // ),
             _buildMenuItemSvg(
               context,
               iconPath: 'assets/images/about-us.svg',

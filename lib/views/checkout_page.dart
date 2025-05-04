@@ -53,10 +53,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
       0; // To be used in calculations (already multiplied by 100)
   int _displayBonus = 0; // For display purposes (divided by 100)
 
+  Future<void> _updateAvailableBonus() async {
+    try {
+      // Get the most up-to-date bonus value directly from API
+      final freshBonus = await _apiService.fetchClientBonus();
+
+      setState(() {
+        // Store the raw bonus value
+        _availableBonus = freshBonus;
+
+        // Calculate display value (divide by 100 for UI display)
+        _displayBonus = (_availableBonus / 100).round();
+      });
+
+      debugPrint(
+        '✅ Updated bonus - Raw: $_availableBonus, Display: $_displayBonus',
+      );
+    } catch (e) {
+      debugPrint('❌ Error updating bonus: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
+
+    _updateAvailableBonus();
 
     // Initialize spot provider if takeaway is selected
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -174,16 +197,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   );
                 }
 
-                // Load user's available bonus from the response
-                final bonusStr = userData['bonus'] ?? '0';
-                _availableBonus = int.tryParse(bonusStr) ?? 0;
-
-                // Calculate display value (divided by 100)
-                _displayBonus = (_availableBonus / 100).round();
-
-                debugPrint(
-                  '📊 Loaded user data from userData: Name: $_userName, Phone: $_userPhone, Bonus: $_availableBonus',
-                );
+                // Bonus will be loaded by _refreshBonus() for accuracy
               });
 
               return; // Successfully loaded from userData
@@ -208,16 +222,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             );
           }
 
-          // Load user's available bonus
-          final bonusStr = prefs.getString('bonus') ?? '0';
-          _availableBonus = int.tryParse(bonusStr) ?? 0;
-
-          // Calculate display value (divided by 100)
-          _displayBonus = (_availableBonus / 100).round();
-
-          debugPrint(
-            '📊 Loaded user data from legacy format: Name: $_userName, Phone: $_userPhone, Bonus: $_availableBonus',
-          );
+          // Bonus will be loaded by _refreshBonus() for accuracy
         });
       }
     } catch (e) {
@@ -256,10 +261,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    // Parse the input bonus (this is the display value)
-    final enteredDisplayBonus = int.tryParse(_bonusController.text) ?? 0;
+    // Parse the input bonus (this is the display value - already divided by 100)
+    final enteredDisplayBonus =
+        int.tryParse(_bonusController.text.replaceAll(' ', '')) ?? 0;
 
-    // Convert to raw value for comparison (multiply by 100)
+    // Convert to raw value for internal calculations (multiply by 100)
     final enteredRawBonus = enteredDisplayBonus * 100;
 
     // Get cart provider to check subtotal
@@ -301,7 +307,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
-  // Update to the _submitOrder method in checkout_page.dart
+  // Updated portion of the _submitOrder method in lib/views/checkout_page.dart
+  // Focus on the bonus handling part
+
   Future<void> _submitOrder() async {
     if (!_validateForm()) {
       return;
@@ -362,21 +370,26 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
 
       // Calculate the correct total with bonus applied
-      final int bonusValue = _appliedBonus;
+      // IMPORTANT: For API submission, we need to use the display value
+      // (already divided by 100), NOT the raw value
+      final int bonusValue = (_appliedBonus / 100).round();
       final int subtotalValue = cartProvider.subtotal;
       final int deliveryFeeValue = cartProvider.deliveryFee;
       final int totalValue = subtotalValue + deliveryFeeValue - bonusValue;
 
       debugPrint(
-        '💰 Calculated values - Subtotal: $subtotalValue, Delivery: $deliveryFeeValue, Bonus: $bonusValue, Total: $totalValue',
+        '💰 Order values - Subtotal: $subtotalValue, Delivery: $deliveryFeeValue, ' +
+            'Applied Bonus (raw): $_appliedBonus, Applied Bonus (display): $bonusValue, ' +
+            'Total: $totalValue',
       );
 
-      // Use the new OrderService to submit the order
+      // Use the OrderService to submit the order
       final orderResult = await _orderService.submitOrder(
         cartItems: cartItemsCopy,
         phone: _phoneController.text,
         deliveryType: cartProvider.isDelivery ? "delivery" : "take away",
         appliedBonus: bonusValue,
+        // Using the display value for API
         address:
             cartProvider.isDelivery
                 ? _addressController.text
@@ -399,10 +412,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       DateTime.now().millisecondsSinceEpoch % 1000,
                   items: orderResult["items"] ?? cartItemsCopy,
                   total: totalValue > 0 ? totalValue : 0,
-                  // Use calculated total or fallback
                   subtotal: subtotalValue,
                   deliveryFee: deliveryFeeValue,
                   appliedBonus: _appliedBonus,
+                  // Pass the raw value
                   address:
                       cartProvider.isDelivery
                           ? _addressController.text
@@ -425,6 +438,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             // Calculate and save the new raw bonus amount
             final newRawBonus = _availableBonus - _appliedBonus;
             await prefs.setString('bonus', newRawBonus.toString());
+            debugPrint('✅ Updated user bonus after order: $newRawBonus (raw)');
           } catch (e) {
             debugPrint('❌ Error updating user bonus: $e');
           }

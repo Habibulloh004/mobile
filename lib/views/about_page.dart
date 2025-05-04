@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../utils/color_utils.dart';
 import '../constant/index.dart';
 
@@ -34,68 +35,11 @@ class AboutPage extends StatelessWidget {
               Center(
                 child: Column(
                   children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: ColorUtils.primaryColor,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: "F",
-                                style: TextStyle(
-                                  color: ColorUtils.accentColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 36,
-                                ),
-                              ),
-                              TextSpan(
-                                text: "d",
-                                style: TextStyle(
-                                  color: ColorUtils.secondaryColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 36,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: "Foo",
-                            style: TextStyle(
-                              color: ColorUtils.accentColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: Constants.fontSizeXLarge,
-                            ),
-                          ),
-                          TextSpan(
-                            text: "dery",
-                            style: TextStyle(
-                              color: ColorUtils.secondaryColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: Constants.fontSizeXLarge,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      "Версия ${Constants.appVersion}",
-                      style: TextStyle(
-                        fontSize: Constants.fontSizeRegular,
-                        color: Colors.grey[600],
-                      ),
+                    SvgPicture.asset(
+                      'assets/images/appLogo.svg',
+                      width: 30,
+                      height: 30,
+                      fit: BoxFit.cover,
                     ),
                   ],
                 ),

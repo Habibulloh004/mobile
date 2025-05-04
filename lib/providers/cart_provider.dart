@@ -403,7 +403,6 @@ class CartProvider with ChangeNotifier {
     return subtotal + currentDeliveryFee;
   }
 
-  // Ensure delivery fee is loaded - add to this method
   Future<void> prepareForCheckout() async {
     debugPrint('🛒 Preparing cart for checkout...');
 
@@ -411,6 +410,9 @@ class CartProvider with ChangeNotifier {
     if (_isDelivery) {
       await refreshDeliveryFee();
     }
+
+    // Force refresh of client data to get latest bonus
+    await _apiService.refreshClientData();
 
     debugPrint(
       '🛒 Cart ready for checkout with delivery fee: $_deliveryFee (applied: ${_isDelivery ? "yes" : "no"})',

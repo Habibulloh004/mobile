@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -261,19 +262,37 @@ class _CheckoutPageState extends State<CheckoutPage> {
     // Convert to raw value for comparison (multiply by 100)
     final enteredRawBonus = enteredDisplayBonus * 100;
 
-    // Validate against available bonus
-    if (enteredRawBonus > _availableBonus) {
+    // Get cart provider to check subtotal
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+
+    // Calculate maximum allowed bonus (50% of subtotal)
+    final maxAllowedBonus = (cartProvider.subtotal * 0.5).round();
+
+    // Determine actual maximum (lesser of available bonus and 50% of subtotal)
+    final actualMaxBonus = min(_availableBonus, maxAllowedBonus);
+
+    // Validate against maximum allowed bonus
+    if (enteredRawBonus > actualMaxBonus) {
+      // Determine appropriate message based on which limit was hit
+      String message = '';
+      if (_availableBonus <= maxAllowedBonus) {
+        // User bonus is the limiting factor
+        message =
+            'У вас недостаточно бонусов. Доступно: ${(actualMaxBonus / 100).round()}';
+      } else {
+        // 50% rule is the limiting factor
+        message =
+            'Максимальная сумма бонусов не может превышать 50% от стоимости товаров (${(maxAllowedBonus / 100).round()} сум)';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('У вас недостаточно бонусов. Доступно: $_displayBonus'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
       );
 
-      // Reset to maximum available display value
+      // Reset to maximum allowed value
       setState(() {
-        _bonusController.text = _displayBonus.toString();
-        _appliedBonus = _availableBonus; // Store as raw value
+        _bonusController.text = (actualMaxBonus / 100).round().toString();
+        _appliedBonus = actualMaxBonus; // Store as raw value
       });
     } else {
       setState(() {
@@ -343,7 +362,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
 
       // Calculate the correct total with bonus applied
-      final int bonusValue = _appliedBonus.toInt() ~/ 100;
+      final int bonusValue = _appliedBonus;
       final int subtotalValue = cartProvider.subtotal;
       final int deliveryFeeValue = cartProvider.deliveryFee;
       final int totalValue = subtotalValue + deliveryFeeValue - bonusValue;
@@ -379,7 +398,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       int.tryParse(orderResult["order_id"] ?? "0") ??
                       DateTime.now().millisecondsSinceEpoch % 1000,
                   items: orderResult["items"] ?? cartItemsCopy,
-                  total: totalValue > 0 ? totalValue : 31000,
+                  total: totalValue > 0 ? totalValue : 0,
                   // Use calculated total or fallback
                   subtotal: subtotalValue,
                   deliveryFee: deliveryFeeValue,
@@ -984,7 +1003,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4.0),
                     child: Text(
-                      'Доступно бонусов: ${formatPrice(_availableBonus, subtract: true)}',
+                      'Доступно бонусов: ${formatPrice(_availableBonus, subtract: true)} \nМожна использовать: ${cartProvider.subtotal ~/ 2 > _availableBonus ~/ 100 ? formatPrice(_availableBonus, subtract: true) : formatPrice(cartProvider.subtotal ~/ 2, subtract: false)}',
                       style: TextStyle(
                         fontSize: Constants.fontSizeSmall,
                         color: Colors.grey[600],
@@ -1004,6 +1023,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             hintText: 'Введите сумму бонусов',
                             keyboardType: TextInputType.number,
                             suffixText: 'сум',
+
+                            // Replace the current inputFormatters array with this updated version:
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
                               TextInputFormatter.withFunction((
@@ -1011,46 +1032,122 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 newValue,
                               ) {
                                 if (newValue.text.isEmpty) return newValue;
-                                final int? value = int.tryParse(newValue.text);
-                                if (value != null && value > _displayBonus) {
+
+                                // Parse the input value
+                                final int? inputValue = int.tryParse(
+                                  newValue.text,
+                                );
+                                if (inputValue == null) return oldValue;
+
+                                // Get cart provider to check subtotal
+                                final cartProvider = Provider.of<CartProvider>(
+                                  context,
+                                  listen: false,
+                                );
+
+                                // Calculate maximum allowed bonus (50% of subtotal)
+                                final maxAllowedBonus =
+                                    (cartProvider.subtotal * 0.5).round();
+
+                                // Determine actual maximum (lesser of available bonus and 50% of subtotal)
+                                final actualMaxDisplay = min(
+                                  _displayBonus,
+                                  maxAllowedBonus,
+                                );
+
+                                // Enforce both limits - don't allow entering greater than the maximum
+                                if (inputValue > actualMaxDisplay) {
                                   return oldValue;
                                 }
-                                return newValue;
-                              }),
-                            ],
-                            onChanged: (value) {
-                              // Apply bonus on change - convert input to raw value (multiply by 100)
-                              final inputValue = int.tryParse(value) ?? 0;
-                              setState(() {
-                                _appliedBonus = inputValue * 100;
-                                _bonusController.value = TextEditingValue(
-                                  text: formatPrice(
-                                    inputValue,
-                                    type: 'space',
-                                    showCurrency: false,
-                                  ),
+
+                                // Format the value with spaces using the formatPrice function
+                                final formattedText = formatPrice(
+                                  inputValue,
+                                  type: 'space',
+                                  showCurrency: false,
+                                );
+
+                                // Return the formatted value maintaining cursor position
+                                return TextEditingValue(
+                                  text: formattedText,
                                   selection: TextSelection.collapsed(
-                                    offset:
-                                        formatPrice(
-                                          inputValue,
-                                          type: 'space',
-                                          showCurrency: false,
-                                        ).length,
+                                    offset: formattedText.length,
                                   ),
                                 );
+                              }),
+                            ],
+
+                            onChanged: (value) {
+                              if (value.isEmpty) {
+                                setState(() {
+                                  _appliedBonus = 0;
+                                });
+                                return;
+                              }
+
+                              // Parse the input value - remove spaces first
+                              final inputValue =
+                                  int.tryParse(value.replaceAll(' ', '')) ?? 0;
+                              debugPrint('input value🤍 $inputValue');
+
+                              final cartProvider = Provider.of<CartProvider>(
+                                context,
+                                listen: false,
+                              );
+
+                              final maxAllowedBonus =
+                                  (cartProvider.subtotal * 0.5).round();
+                              final actualMaxBonus = min(
+                                _availableBonus,
+                                maxAllowedBonus,
+                              );
+
+                              // Convert to raw bonus value (multiplied by 100 for internal representation)
+                              final finalBonus = min(
+                                inputValue,
+                                actualMaxBonus,
+                              );
+
+                              debugPrint('input finalbonus🤍 $finalBonus');
+
+                              setState(() {
+                                _appliedBonus = finalBonus;
                               });
                             },
                           ),
                         ),
                         SizedBox(width: 8),
                         SizedBox(
-                          height: 50.0, // Set your desired height
+                          height: 50.0,
                           child: ElevatedButton(
                             onPressed: () {
+                              // Get cart provider to check subtotal
+                              final cartProvider = Provider.of<CartProvider>(
+                                context,
+                                listen: false,
+                              );
+
+                              // Calculate maximum allowed bonus (50% of subtotal)
+                              final maxAllowedBonus =
+                                  (cartProvider.subtotal * 0.5).round();
+
+                              // Use the lesser of available bonus and 50% of subtotal
+                              final actualMaxBonus = min(
+                                _availableBonus,
+                                maxAllowedBonus,
+                              );
+
+                              // Format the max bonus for display (divide by 100 to get display value)
+                              final displayMaxBonus = actualMaxBonus;
+                              final formattedMaxBonus = formatPrice(
+                                displayMaxBonus,
+                                type: 'space',
+                                showCurrency: false,
+                              );
+
                               setState(() {
-                                _bonusController.text =
-                                    _displayBonus.toString();
-                                _appliedBonus = _availableBonus;
+                                _bonusController.text = formattedMaxBonus;
+                                _appliedBonus = actualMaxBonus;
                               });
                             },
                             style: ElevatedButton.styleFrom(

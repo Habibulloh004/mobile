@@ -342,7 +342,7 @@ class OrderConfirmationPage extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '- ${formatPrice(appliedBonus.toInt() / 100)}',
+                              '- ${formatPrice(appliedBonus)}',
                               style: TextStyle(
                                 fontSize: Constants.fontSizeRegular,
                                 fontWeight: FontWeight.bold,

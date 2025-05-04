@@ -247,7 +247,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         inputFormatters: [UzbekPhoneFormatter()],
                         decoration: InputDecoration(
                           labelText: "Номер телефона",
-                          hintText: "+998 (XX) XXX XX XX",
+                          hintText: "+998 (90) 123 45 67",
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(

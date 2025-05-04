@@ -7,3 +7,4 @@ export 'product_model.dart';
 export 'order_model.dart';
 export 'spot_model.dart';
 export 'admin_model.dart';
+export 'restaurant_info_model.dart';

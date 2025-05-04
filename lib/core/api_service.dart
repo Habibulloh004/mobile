@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:poster_app/models/restaurant_info_model.dart';
 import 'package:poster_app/services/order_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/category_model.dart';
@@ -25,11 +26,14 @@ class ApiService {
   static const String ORDERS_CACHE_KEY = 'orders_data';
   static const String BANNER_CACHE_KEY = 'banner_data';
   static const String SPOTS_CACHE_KEY = 'spots_data';
+  static const String RESTAURANT_CACHE_KEY = 'restaurant_info';
+
 
   // Flag to force refresh client data
   bool _forceRefreshClientData = false;
 
   // Cache durations in milliseconds
+  static const int RESTAURANT_CACHE_DURATION = 14 * 24 * 60 * 60 * 1000;
   static const int CATEGORIES_CACHE_DURATION = 3 * 60 * 60 * 1000; // 3 hours
   static const int PRODUCTS_CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour
   static const int ORDERS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 1 day
@@ -159,6 +163,109 @@ class ApiService {
 
       // Return an empty object with default token if no cache is available
       return {"system_token": Constants.defaultApiToken};
+    }
+  }
+
+  Future<RestaurantInfoModel?> getRestaurantInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? cachedData = prefs.getString(RESTAURANT_CACHE_KEY);
+
+      if (cachedData != null) {
+        final Map<String, dynamic> restaurantCache = jsonDecode(cachedData);
+        final int timestamp = restaurantCache['timestamp'] ?? 0;
+
+        // Check if cache is still valid (2 weeks)
+        if (DateTime.now().millisecondsSinceEpoch - timestamp <
+            RESTAURANT_CACHE_DURATION) {
+          debugPrint('✅ Using cached restaurant info data');
+          final data = restaurantCache['data'];
+          return RestaurantInfoModel.fromJson(data);
+        }
+      }
+
+      // Cache expired or not available, fetch from API
+      final userId = Constants.userId;
+      final apiBaseUrl = Constants.apiBaseUrl;
+
+      final response = await _dio
+          .get('$apiBaseUrl/public/restaurants/admin/$userId')
+          .timeout(Duration(seconds: 10));
+
+      if (response.statusCode == 200 &&
+          response.data["data"] != null &&
+          response.data["data"].isNotEmpty) {
+        final Map<String, dynamic> restaurantData = response.data["data"][0];
+
+        // Cache the response with timestamp
+        final Map<String, dynamic> cacheObject = {
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'data': restaurantData,
+        };
+
+        await prefs.setString(RESTAURANT_CACHE_KEY, jsonEncode(cacheObject));
+        debugPrint('✅ Restaurant info fetched and cached');
+
+        return RestaurantInfoModel.fromJson(restaurantData);
+      } else {
+        debugPrint("⚠️ Invalid response format for restaurant info");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("❌ Error fetching restaurant info: $e");
+
+      // Try to use cached data if available, regardless of age
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final String? cachedData = prefs.getString(RESTAURANT_CACHE_KEY);
+        if (cachedData != null) {
+          final Map<String, dynamic> restaurantCache = jsonDecode(cachedData);
+          debugPrint('⚠️ Using expired cached restaurant info due to error');
+          return RestaurantInfoModel.fromJson(restaurantCache['data']);
+        }
+      } catch (_) {
+        // Ignore cache reading errors
+      }
+
+      return null;
+    }
+  }
+
+  // Force refresh restaurant info from API
+  Future<RestaurantInfoModel?> refreshRestaurantInfo() async {
+    try {
+      final userId = Constants.userId;
+      final apiBaseUrl = Constants.apiBaseUrl;
+      final prefs = await SharedPreferences.getInstance();
+
+      debugPrint('🔄 Refreshing restaurant info from API...');
+
+      final response = await _dio
+          .get('$apiBaseUrl/public/restaurants/admin/$userId')
+          .timeout(Duration(seconds: 10));
+
+      if (response.statusCode == 200 &&
+          response.data["data"] != null &&
+          response.data["data"].isNotEmpty) {
+        final Map<String, dynamic> restaurantData = response.data["data"][0];
+
+        // Cache the response with timestamp
+        final Map<String, dynamic> cacheObject = {
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'data': restaurantData,
+        };
+
+        await prefs.setString(RESTAURANT_CACHE_KEY, jsonEncode(cacheObject));
+        debugPrint('✅ Restaurant info refreshed and cached');
+
+        return RestaurantInfoModel.fromJson(restaurantData);
+      } else {
+        debugPrint("⚠️ Invalid response format for restaurant info");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("❌ Error refreshing restaurant info: $e");
+      return null;
     }
   }
 
@@ -1260,6 +1367,7 @@ class ApiService {
 
       for (var key in keys) {
         if (key == ADMIN_CACHE_KEY ||
+            key == RESTAURANT_CACHE_KEY ||
             key == CATEGORIES_CACHE_KEY ||
             key == BANNER_CACHE_KEY ||
             key.startsWith(PRODUCTS_CACHE_PREFIX)) {

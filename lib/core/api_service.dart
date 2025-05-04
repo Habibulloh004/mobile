@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:poster_app/services/order_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/category_model.dart';
 import '../models/product_model.dart';
@@ -898,7 +899,9 @@ class ApiService {
     }
   }
 
-  // Mock orders for order history
+  // Fixed fetchOrderHistory method for ApiService
+  // Place this method in lib/core/api_service.dart
+
   Future<List<OrderModel>> fetchOrderHistory() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -909,136 +912,105 @@ class ApiService {
         return [];
       }
 
-      // Get the current delivery fee from admin data
-      int deliveryFee = await getDeliveryFee();
+      // Create an instance of OrderService
+      final orderService = OrderService(apiService: this);
 
-      // For now, return mock data with the current delivery fee
-      // In a real app, this would make an API call
-      await Future.delayed(
-        Duration(milliseconds: 500),
-      ); // Simulate network delay
+      // Get orders from local storage
+      final ordersList = await orderService.getLocalOrders();
 
-      return [
-        OrderModel(
-          id: "1",
-          date: '01.03.2025',
-          items: [
-            OrderItem(
-              id: "101",
-              name: 'Биг чизбургер',
-              price: 3500000,
-              imageUrl: 'assets/images/no_image.png',
-              quantity: 2,
-            ),
-            OrderItem(
-              id: "102",
-              name: 'Чизбургер',
-              price: 3500000,
-              imageUrl: 'assets/images/no_image.png',
-              quantity: 2,
-            ),
-          ],
-          subtotal: 14000000,
-          deliveryFee: deliveryFee,
-          // Using dynamic delivery fee from admin data
-          total: 14000000 + deliveryFee,
-          // Calculate total with dynamic fee
-          status: 'Доставлен',
-          deliveryType: 'delivery',
-          address: 'ул. Пушкина, д. 10, кв. 5',
-        ),
-        OrderModel(
-          id: "2",
-          date: '01.03.2025',
-          items: [
-            OrderItem(
-              id: "103",
-              name: 'Биг чизбургер',
-              price: 3500000,
-              imageUrl: 'assets/images/no_image.png',
-              quantity: 2,
-            ),
-            OrderItem(
-              id: "104",
-              name: 'Чизбургер',
-              price: 3500000,
-              imageUrl: 'assets/images/no_image.png',
-              quantity: 2,
-            ),
-          ],
-          subtotal: 14000000,
-          deliveryFee: deliveryFee,
-          // Using dynamic delivery fee from admin data
-          total: 14000000 + deliveryFee,
-          // Calculate total with dynamic fee
-          status: 'В пути',
-          deliveryType: 'delivery',
-          address: 'ул. Ленина, д. 15, кв. 78',
-        ),
-        OrderModel(
-          id: "3",
-          date: '01.03.2025',
-          items: [
-            OrderItem(
-              id: "105",
-              name: 'Биг чизбургер',
-              price: 3500000,
-              imageUrl: 'assets/images/no_image.png',
-              quantity: 2,
-            ),
-            OrderItem(
-              id: "106",
-              name: 'Чизбургер',
-              price: 3500000,
-              imageUrl: 'assets/images/no_image.png',
-              quantity: 2,
-            ),
-          ],
-          subtotal: 14000000,
-          deliveryFee: 0,
-          // No delivery fee for pickup orders
-          total: 14000000,
-          // No delivery fee added
-          status: 'Доставлен',
-          deliveryType: 'pickup',
-          spotId: "1",
-          spotName: "Possible4",
-          address: "68VF+49W, Ташкент, Ташкентская область",
-        ),
-        OrderModel(
-          id: "4",
-          date: '02.03.2025',
-          items: [
-            OrderItem(
-              id: "107",
-              name: 'Двойной чизбургер',
-              price: 4000000,
-              imageUrl: 'assets/images/no_image.png',
-              quantity: 1,
-            ),
-            OrderItem(
-              id: "108",
-              name: 'Кола',
-              price: 800000,
-              imageUrl: 'assets/images/no_image.png',
-              quantity: 2,
-            ),
-          ],
-          subtotal: 5600000,
-          deliveryFee: 0,
-          // No delivery fee for pickup orders
-          total: 5600000,
-          // No delivery fee added
-          status: 'Готовится',
-          deliveryType: 'pickup',
-          spotId: "2",
-          spotName: "2possible",
-          address: "дом №1, ул Бадахшон 2 проезд, 100000, Ташкент, Toshkent",
-        ),
-      ];
+      if (ordersList.isEmpty) {
+        debugPrint('📋 No orders found in history, returning empty list');
+        return [];
+      }
+
+      // Convert the raw order data to OrderModel objects
+      final List<OrderModel> orderModels = [];
+
+      for (var orderData in ordersList) {
+        try {
+          // Extract items from the order data
+          final List<Map<String, dynamic>> itemsData =
+              List<Map<String, dynamic>>.from(orderData['items'] ?? []);
+
+          // Convert to OrderItem objects
+          final List<OrderItem> orderItems =
+              itemsData.map((item) {
+                // Keep modification as is - can be String, Map or null
+                // The OrderItem constructor will handle it
+                return OrderItem(
+                  id: item['product_id'].toString(),
+                  name: item['name'] ?? 'Unknown Product',
+                  price: item['price'] ?? 0,
+                  imageUrl: item['imageUrl'] ?? 'assets/images/no_image.png',
+                  quantity: item['quantity'] ?? 1,
+                  modification: item['modification'], // Pass as is
+                );
+              }).toList();
+
+          // Create OrderModel
+          final OrderModel order = OrderModel(
+            id:
+                orderData['order_id'] ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            date:
+                orderData['date'] ?? DateTime.now().toString().substring(0, 10),
+            items: orderItems,
+            subtotal: orderData['subtotal'] ?? 0,
+            deliveryFee: orderData['delivery_fee'] ?? 0,
+            total: orderData['total'] ?? 0,
+            status: orderData['status'] ?? 'В обработке',
+            deliveryType:
+                orderData['is_delivery'] == true ? 'delivery' : 'pickup',
+            address: orderData['address'],
+            spotId: orderData['spot_id'],
+            spotName: orderData['spot_name'],
+          );
+
+          orderModels.add(order);
+        } catch (e) {
+          debugPrint('❌ Error parsing order: $e');
+          // Print more debug info to help diagnose the problem
+          debugPrint('Order data causing error: ${orderData.toString()}');
+        }
+      }
+
+      // Sort orders by date (newest first)
+      orderModels.sort((a, b) {
+        final DateTime dateA = _parseDate(a.date);
+        final DateTime dateB = _parseDate(b.date);
+        return dateB.compareTo(dateA);
+      });
+
+      debugPrint(
+        '📋 Successfully loaded ${orderModels.length} orders from local storage',
+      );
+      return orderModels;
     } catch (e) {
       debugPrint('❌ Error fetching order history: $e');
       return [];
+    }
+  }
+
+  // Helper method to parse date strings
+  DateTime _parseDate(String date) {
+    try {
+      // Check if date is in format DD.MM.YYYY
+      if (date.contains('.')) {
+        final parts = date.split('.');
+        if (parts.length == 3) {
+          return DateTime(
+            int.parse(parts[2]), // year
+            int.parse(parts[1]), // month
+            int.parse(parts[0]), // day
+          );
+        }
+      }
+
+      // Fallback to parsing ISO date
+      return DateTime.parse(date);
+    } catch (e) {
+      // Return current date if parsing fails
+      return DateTime.now();
     }
   }
 

@@ -1,5 +1,7 @@
 // lib/models/order_model.dart - Updated for consistent price handling
 
+// lib/models/order_model.dart - Updated for consistent modification handling
+
 class OrderModel {
   final String id; // Changed from int to String to match API usage
   final String date;
@@ -82,7 +84,8 @@ class OrderItem {
   final int price;
   final int quantity;
   final String imageUrl;
-  final Map<String, dynamic>? modification;
+  final dynamic
+  modification; // Changed to dynamic to support both String and Map types
 
   OrderItem({
     required this.id, // Updated parameter name
@@ -95,18 +98,22 @@ class OrderItem {
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     // Convert values to int to maintain consistent types
-    // NOTE: No division by 100 here as we assume order API returns correctly formatted prices
     int price = _parseIntValue(json['price']);
     int quantity = _parseIntValue(json['quantity']);
 
+    // Handle modification without type checking
+    // It can be a String (for group mods) or a Map (for regular mods)
+    // or null (for no mods)
+    dynamic modificationData = json['modification'];
+
     return OrderItem(
       id: json['product_id']?.toString() ?? '',
-      // Parse product_id as id
       name: json['name']?.toString() ?? '',
       price: price,
       quantity: quantity,
       imageUrl: json['imageUrl']?.toString() ?? '',
-      modification: json['modification'],
+      modification:
+          modificationData, // Pass as is, will be handled during display
     );
   }
 

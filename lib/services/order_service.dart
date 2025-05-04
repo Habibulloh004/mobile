@@ -1,7 +1,8 @@
-// lib/services/order_service.dart - Fixed product data preservation
+// lib/services/order_service.dart - Updated to save orders locally
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/order_model.dart';
 import '../core/api_service.dart';
 
@@ -9,10 +10,13 @@ class OrderService {
   final ApiService _apiService;
   final Dio _dio = Dio();
 
+  // Cache key for orders
+  static const String ORDERS_CACHE_KEY = 'local_orders';
+
   OrderService({ApiService? apiService})
     : _apiService = apiService ?? ApiService();
 
-  /// Submits an order to Poster API
+  /// Submits an order to Poster API and saves it locally on success
   ///
   /// Returns the order ID if successful, null otherwise
   Future<Map<String, dynamic>?> submitOrder({
@@ -114,7 +118,7 @@ class OrderService {
 
         // Create result object with order ID and original cart items
         // This ensures we maintain the original item data for the confirmation page
-        return {
+        final orderResult = {
           "order_id": responseData["incoming_order_id"]?.toString() ?? "",
           "items": cartItems, // Pass the original cart items
           "total": 0, // Will be calculated on confirmation page
@@ -126,6 +130,11 @@ class OrderService {
           "payment_method": paymentMethod,
           "spot_id": spotId,
         };
+
+        // Save the order to local storage
+        await _saveOrderLocally(orderResult);
+
+        return orderResult;
       } else {
         debugPrint(
           '❌ Failed to submit order: ${response.statusCode} - ${response.data}',
@@ -135,6 +144,78 @@ class OrderService {
     } catch (e) {
       debugPrint('❌ Error submitting order: $e');
       return null;
+    }
+  }
+
+  /// Save an order to local storage
+  Future<void> _saveOrderLocally(Map<String, dynamic> orderData) async {
+    try {
+      debugPrint('💾 Saving order locally...');
+      final prefs = await SharedPreferences.getInstance();
+
+      // Get existing orders
+      final String? existingOrdersJson = prefs.getString(ORDERS_CACHE_KEY);
+      List<Map<String, dynamic>> orders = [];
+
+      if (existingOrdersJson != null) {
+        final List<dynamic> decodedOrders = jsonDecode(existingOrdersJson);
+        orders = decodedOrders.cast<Map<String, dynamic>>();
+      }
+
+      // Calculate total and subtotal based on cart items
+      final List<Map<String, dynamic>> items = List<Map<String, dynamic>>.from(
+        orderData['items'],
+      );
+      int subtotal = 0;
+
+      for (var item in items) {
+        final int price = item['price'] ?? 0;
+        final int quantity = item['quantity'] ?? 1;
+        subtotal += price * quantity;
+      }
+
+      // Update totals
+      orderData['subtotal'] = subtotal;
+      orderData['total'] =
+          subtotal +
+          (orderData['delivery_fee'] ?? 0) -
+          (orderData['applied_bonus'] ?? 0);
+
+      // Add date and status
+      orderData['date'] = DateTime.now()
+          .toString()
+          .substring(0, 10)
+          .replaceAll('-', '.');
+      orderData['status'] = 'В обработке'; // Initial status
+
+      // Add to orders list
+      orders.add(orderData);
+
+      // Save back to prefs
+      await prefs.setString(ORDERS_CACHE_KEY, jsonEncode(orders));
+      debugPrint('✅ Order saved locally successfully');
+    } catch (e) {
+      debugPrint('❌ Error saving order locally: $e');
+    }
+  }
+
+  /// Get all orders from local storage
+  Future<List<Map<String, dynamic>>> getLocalOrders() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? ordersJson = prefs.getString(ORDERS_CACHE_KEY);
+
+      if (ordersJson != null) {
+        final List<dynamic> decodedOrders = jsonDecode(ordersJson);
+        debugPrint('📋 Found ${decodedOrders.length} local orders');
+        return decodedOrders.cast<Map<String, dynamic>>();
+      }
+
+      debugPrint('📋 No local orders found');
+      return [];
+    } catch (e) {
+      debugPrint('❌ Error retrieving local orders: $e');
+      return [];
     }
   }
 }

@@ -176,7 +176,10 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
           MaterialPageRoute(
             builder: (context) => OrderDetailsPage(order: order),
           ),
-        );
+        ).then((_) {
+          // Refresh orders when returning from order details
+          _loadOrders();
+        });
       },
       child: Container(
         margin: EdgeInsets.only(bottom: 16),

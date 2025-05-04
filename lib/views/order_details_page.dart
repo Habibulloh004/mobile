@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../utils/color_utils.dart';
 import '../constant/index.dart';
 import '../helpers/index.dart';
@@ -29,73 +30,175 @@ class OrderDetailsPage extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Order status and date
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: ColorUtils.primaryColor,
-                  borderRadius: BorderRadius.circular(12),
+      body: Column(
+        children: [
+          // Delivery type selector (non-functional, just for UI)
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: null, // Non-functional
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          order.deliveryType == 'delivery'
+                              ? ColorUtils.primaryColor
+                              : Colors.grey[200],
+                      foregroundColor: ColorUtils.secondaryColor,
+                      elevation: 0,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      disabledBackgroundColor:
+                          order.deliveryType == 'delivery'
+                              ? ColorUtils.primaryColor
+                              : Colors.grey[200],
+                      disabledForegroundColor: ColorUtils.secondaryColor,
+                    ),
+                    child: Text("Доставка"),
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Статус',
-                          style: TextStyle(
-                            fontSize: Constants.fontSizeMedium,
-                            fontWeight: FontWeight.bold,
-                            color: ColorUtils.secondaryColor,
-                          ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: null, // Non-functional
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          order.deliveryType != 'delivery'
+                              ? ColorUtils.primaryColor
+                              : Colors.grey[200],
+                      foregroundColor: ColorUtils.secondaryColor,
+                      elevation: 0,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      disabledBackgroundColor:
+                          order.deliveryType != 'delivery'
+                              ? ColorUtils.primaryColor
+                              : Colors.grey[200],
+                      disabledForegroundColor: ColorUtils.secondaryColor,
+                    ),
+                    child: Text("На вынос"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Order information
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ColorUtils.primaryColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Статус:',
+                        style: TextStyle(
+                          fontSize: Constants.fontSizeRegular,
+                          color: ColorUtils.secondaryColor,
                         ),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              order.status == 'Доставлен'
+                                  ? Colors.green[100]
+                                  : Colors.blue[100],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          order.status,
+                          style: TextStyle(
+                            fontSize: Constants.fontSizeSmall,
+                            fontWeight: FontWeight.bold,
                             color:
                                 order.status == 'Доставлен'
-                                    ? Colors.green[100]
-                                    : Colors.blue[100],
-                            borderRadius: BorderRadius.circular(4),
+                                    ? Colors.green[700]
+                                    : Colors.blue[700],
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Дата:',
+                        style: TextStyle(
+                          fontSize: Constants.fontSizeRegular,
+                          color: ColorUtils.secondaryColor,
+                        ),
+                      ),
+                      Text(
+                        order.date,
+                        style: TextStyle(
+                          fontSize: Constants.fontSizeRegular,
+                          fontWeight: FontWeight.bold,
+                          color: ColorUtils.secondaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (order.address != null && order.address!.isNotEmpty) ...[
+                    SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Адрес:',
+                          style: TextStyle(
+                            fontSize: Constants.fontSizeRegular,
+                            color: ColorUtils.secondaryColor,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
                           child: Text(
-                            order.status,
+                            order.address!,
                             style: TextStyle(
-                              fontSize: Constants.fontSizeSmall,
+                              fontSize: Constants.fontSizeRegular,
                               fontWeight: FontWeight.bold,
-                              color:
-                                  order.status == 'Доставлен'
-                                      ? Colors.green[700]
-                                      : Colors.blue[700],
+                              color: ColorUtils.secondaryColor,
                             ),
+                            textAlign: TextAlign.right,
                           ),
                         ),
                       ],
                     ),
+                  ],
+                  if (order.spotName != null && order.spotName!.isNotEmpty) ...[
                     SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Дата',
+                          'Точка самовывоза:',
                           style: TextStyle(
                             fontSize: Constants.fontSizeRegular,
                             color: ColorUtils.secondaryColor,
                           ),
                         ),
                         Text(
-                          order.date,
+                          order.spotName!,
                           style: TextStyle(
                             fontSize: Constants.fontSizeRegular,
                             fontWeight: FontWeight.bold,
@@ -104,262 +207,437 @@ class OrderDetailsPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    SizedBox(height: 8),
-                    Row(
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // Order items list
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              itemCount: order.items.length,
+              itemBuilder: (context, index) {
+                final item = order.items[index];
+                return _buildCartItemCard(context, item);
+              },
+            ),
+          ),
+
+          // Summary and checkout
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: ColorUtils.primaryColor,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Subtotal
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Товары",
+                      style: TextStyle(
+                        fontSize: Constants.fontSizeRegular,
+                        color: ColorUtils.secondaryColor,
+                      ),
+                    ),
+                    Text(
+                      formatPrice(order.subtotal),
+                      style: TextStyle(
+                        fontSize: Constants.fontSizeRegular,
+                        fontWeight: FontWeight.bold,
+                        color: ColorUtils.secondaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Delivery fee (if applicable)
+                if (order.deliveryType == 'delivery' && order.deliveryFee > 0)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Тип',
+                          "Доставка",
                           style: TextStyle(
                             fontSize: Constants.fontSizeRegular,
                             color: ColorUtils.secondaryColor,
                           ),
                         ),
-                        Row(
-                          children: [
-                            Icon(
-                              order.deliveryType == 'delivery'
-                                  ? Icons.delivery_dining
-                                  : Icons.shopping_bag,
-                              color: ColorUtils.secondaryColor,
-                              size: 16,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              order.deliveryType == 'delivery'
-                                  ? 'Доставка'
-                                  : 'На вынос',
+                        Text(
+                          formatPrice(order.deliveryFee),
+                          style: TextStyle(
+                            fontSize: Constants.fontSizeRegular,
+                            fontWeight: FontWeight.bold,
+                            color: ColorUtils.secondaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Total
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Общая сумма",
+                        style: TextStyle(
+                          fontSize: Constants.fontSizeMedium,
+                          fontWeight: FontWeight.bold,
+                          color: ColorUtils.secondaryColor,
+                        ),
+                      ),
+                      Text(
+                        formatPrice(order.total),
+                        style: TextStyle(
+                          fontSize: Constants.fontSizeMedium,
+                          fontWeight: FontWeight.bold,
+                          color: ColorUtils.accentColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Return button
+                SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ColorUtils.buttonColor,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      "Вернуться",
+                      style: TextStyle(
+                        fontSize: Constants.fontSizeMedium,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCartItemCard(BuildContext context, OrderItem item) {
+    // Extract modification information
+    String? modificationName;
+    int? modificationPrice;
+    dynamic modification = item.modification;
+    List<Map<String, dynamic>> groupModifications = [];
+
+    // Handle different types of modifications
+    if (modification != null) {
+      if (modification is Map<String, dynamic>) {
+        // Regular modification
+        modificationName = modification['name']?.toString();
+        modificationPrice =
+            modification['price'] is int
+                ? modification['price']
+                : (modification['price'] is String
+                    ? int.tryParse(modification['price'])
+                    : null);
+      } else if (modification is String) {
+        // Group modifications in JSON string
+        try {
+          final List<dynamic> mods = jsonDecode(modification);
+          for (var mod in mods) {
+            try {
+              Map<String, dynamic> modMap = {};
+              if (mod is Map<String, dynamic>) {
+                modMap = mod;
+              } else {
+                modMap = {'m': mod['m'] ?? mod, 'a': mod['a'] ?? 1};
+              }
+              groupModifications.add(modMap);
+            } catch (e) {
+              debugPrint('Error parsing modification: $e');
+            }
+          }
+        } catch (e) {
+          debugPrint('Error parsing group modifications: $e');
+        }
+      }
+    }
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Main item content
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Product image
+              ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  bottomLeft: Radius.circular(
+                    groupModifications.isEmpty ? 12 : 0,
+                  ),
+                ),
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  child: Image.network(
+                    item.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset(
+                        'assets/images/no_image.png',
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              // Product info
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Product name
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              cleanProductName(item.name),
                               style: TextStyle(
                                 fontSize: Constants.fontSizeRegular,
                                 fontWeight: FontWeight.bold,
                                 color: ColorUtils.secondaryColor,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: 24),
-
-              // Order items
-              Text(
-                'Товары',
-                style: TextStyle(
-                  fontSize: Constants.fontSizeMedium,
-                  fontWeight: FontWeight.bold,
-                  color: ColorUtils.secondaryColor,
-                ),
-              ),
-              SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: ColorUtils.primaryColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: NeverScrollableScrollPhysics(),
-                      itemCount: order.items.length,
-                      separatorBuilder: (context, index) => Divider(height: 16),
-                      itemBuilder: (context, index) {
-                        final item = order.items[index];
-                        return Row(
-                          children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  item.imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Image.asset(
-                                      'assets/images/no_image.png',
-                                      fit: BoxFit.cover,
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    cleanProductName(item.name),
-                                    style: TextStyle(
-                                      fontSize: Constants.fontSizeRegular,
-                                      fontWeight: FontWeight.bold,
-                                      color: ColorUtils.secondaryColor,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    formatPrice(item.price),
-                                    style: TextStyle(
-                                      fontSize: Constants.fontSizeSmall,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'x${item.quantity}',
-                                style: TextStyle(
-                                  fontSize: Constants.fontSizeRegular,
-                                  fontWeight: FontWeight.bold,
-                                  color: ColorUtils.secondaryColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-
-                    SizedBox(height: 16),
-                    Divider(),
-                    SizedBox(height: 8),
-
-                    // Order summary
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Товары',
-                          style: TextStyle(
-                            fontSize: Constants.fontSizeRegular,
-                            color: ColorUtils.secondaryColor,
                           ),
-                        ),
-                        Text(
-                          formatPrice(order.subtotal.toDouble()),
-                          style: TextStyle(
-                            fontSize: Constants.fontSizeRegular,
-                            fontWeight: FontWeight.bold,
-                            color: ColorUtils.secondaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
 
-                    if (order.deliveryType != 'delivery' &&
-                        order.spotName != null)
-                      Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.storefront,
-                                  size: 16,
-                                  color: Colors.grey[600],
+                          // Additions badge for group modifications
+                          if (groupModifications.isNotEmpty)
+                            Padding(
+                              padding: EdgeInsets.only(left: 6, top: 2),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
                                 ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Точка самовывоза',
+                                decoration: BoxDecoration(
+                                  color: ColorUtils.primaryColor,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: ColorUtils.secondaryColor
+                                        .withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Добавки',
                                   style: TextStyle(
-                                    fontSize: Constants.fontSizeRegular,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
                                     color: ColorUtils.secondaryColor,
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
-                            Text(
-                              order.spotName ?? '',
+                        ],
+                      ),
+
+                      SizedBox(height: 4),
+
+                      // Regular modification if available
+                      if (modificationName != null)
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            modificationName,
+                            style: TextStyle(
+                              fontSize: Constants.fontSizeSmall,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+
+                      // Price display
+                      Text(
+                        formatPrice(item.price),
+                        style: TextStyle(
+                          color: ColorUtils.accentColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: Constants.fontSizeMedium,
+                        ),
+                      ),
+
+                      SizedBox(height: 12),
+
+                      // Quantity row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          // Quantity label
+                          Text(
+                            'Кол-во:',
+                            style: TextStyle(
+                              fontSize: Constants.fontSizeSmall,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          // Quantity display
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ColorUtils.primaryColor,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              item.quantity.toString(),
                               style: TextStyle(
                                 fontSize: Constants.fontSizeRegular,
                                 fontWeight: FontWeight.bold,
                                 color: ColorUtils.secondaryColor,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-
-                    SizedBox(height: 8),
-                    Divider(),
-                    SizedBox(height: 8),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Общая сумма',
-                          style: TextStyle(
-                            fontSize: Constants.fontSizeMedium,
-                            fontWeight: FontWeight.bold,
-                            color: ColorUtils.secondaryColor,
-                          ),
-                        ),
-                        Text(
-                          formatPrice(order.total.toDouble()),
-                          style: TextStyle(
-                            fontSize: Constants.fontSizeMedium,
-                            fontWeight: FontWeight.bold,
-                            color: ColorUtils.accentColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: 24),
-
-              // Return button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: ColorUtils.accentColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    'Вернуться',
-                    style: TextStyle(
-                      color: ColorUtils.accentColor,
-                      fontSize: Constants.fontSizeRegular,
-                    ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
-        ),
+
+          // Group Modifications section
+          if (groupModifications.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: ColorUtils.primaryColor.withOpacity(0.5),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Добавки:',
+                    style: TextStyle(
+                      fontSize: Constants.fontSizeSmall,
+                      fontWeight: FontWeight.bold,
+                      color: ColorUtils.secondaryColor,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    // Show ALL group modifications
+                    children:
+                        groupModifications.map((mod) {
+                          // Display name if available, otherwise show ID
+                          String displayText =
+                              mod.containsKey("name")
+                                  ? mod["name"]
+                                  : "ID: ${mod["m"]}";
+                          int? price =
+                              mod.containsKey("price") ? mod["price"] : null;
+
+                          return Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: ColorUtils.accentColor.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  displayText,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: ColorUtils.secondaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                // Show price if available
+                                if (price != null && price > 0)
+                                  Padding(
+                                    padding: EdgeInsets.only(left: 4),
+                                    child: Text(
+                                      '+${formatPrice(price)}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: ColorUtils.accentColor,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

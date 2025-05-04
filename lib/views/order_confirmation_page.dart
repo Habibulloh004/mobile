@@ -4,6 +4,7 @@ import '../utils/color_utils.dart';
 import '../constant/index.dart';
 import '../helpers/index.dart';
 import 'main_page.dart';
+import 'order_history_page.dart';
 
 class OrderConfirmationPage extends StatelessWidget {
   final int orderId;
@@ -108,7 +109,7 @@ class OrderConfirmationPage extends StatelessWidget {
 
                     SizedBox(height: 16),
 
-                    // Order items - Fixed to ensure items display correctly
+                    // Order items
                     if (items.isNotEmpty)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,11 +120,6 @@ class OrderConfirmationPage extends StatelessWidget {
                             itemCount: items.length,
                             itemBuilder: (context, index) {
                               final item = items[index];
-
-                              // Extra logging to diagnose the item structure
-                              debugPrint(
-                                '📦 Processing item $index: ${item.toString()}',
-                              );
 
                               // Ensure all properties are safely extracted with fallbacks
                               final String name =
@@ -165,11 +161,6 @@ class OrderConfirmationPage extends StatelessWidget {
                               }
 
                               final int itemTotal = price * quantity;
-
-                              // Debug print to help diagnose issues
-                              debugPrint(
-                                '📦 Item $index: $name, qty: $quantity, price: $price, total: $itemTotal',
-                              );
 
                               return Padding(
                                 padding: EdgeInsets.only(bottom: 8),
@@ -219,86 +210,26 @@ class OrderConfirmationPage extends StatelessWidget {
 
                     Divider(color: Colors.grey[300]),
 
-                    // Subtotal - Make sure to display the correct subtotal
-                    // If subtotal is 0 but items exist, recalculate the subtotal from items
-                    Builder(
-                      builder: (context) {
-                        int calculatedSubtotal = subtotal;
-
-                        // If subtotal is 0 but we have items, recalculate from items
-                        if (subtotal == 0 && items.isNotEmpty) {
-                          calculatedSubtotal = items.fold(0, (sum, item) {
-                            int itemPrice = 0;
-                            int itemQuantity = 1;
-
-                            // Safe extraction of price
-                            if (item['price'] != null) {
-                              if (item['price'] is int) {
-                                itemPrice = item['price'];
-                              } else if (item['price'] is double) {
-                                itemPrice = (item['price'] as double).toInt();
-                              } else {
-                                try {
-                                  itemPrice = int.parse(
-                                    item['price'].toString(),
-                                  );
-                                } catch (e) {
-                                  debugPrint(
-                                    '❌ Error parsing price for subtotal: $e',
-                                  );
-                                }
-                              }
-                            }
-
-                            // Safe extraction of quantity
-                            if (item['quantity'] != null) {
-                              if (item['quantity'] is int) {
-                                itemQuantity = item['quantity'];
-                              } else if (item['quantity'] is double) {
-                                itemQuantity =
-                                    (item['quantity'] as double).toInt();
-                              } else {
-                                try {
-                                  itemQuantity = int.parse(
-                                    item['quantity'].toString(),
-                                  );
-                                } catch (e) {
-                                  debugPrint(
-                                    '❌ Error parsing quantity for subtotal: $e',
-                                  );
-                                }
-                              }
-                            }
-
-                            return sum + (itemPrice * itemQuantity);
-                          });
-
-                          debugPrint(
-                            '📊 Recalculated subtotal from items: $calculatedSubtotal',
-                          );
-                        }
-
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Товары',
-                              style: TextStyle(
-                                fontSize: Constants.fontSizeRegular,
-                                color: ColorUtils.secondaryColor,
-                              ),
-                            ),
-                            Text(
-                              formatPrice(calculatedSubtotal),
-                              style: TextStyle(
-                                fontSize: Constants.fontSizeRegular,
-                                fontWeight: FontWeight.bold,
-                                color: ColorUtils.secondaryColor,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
+                    // Subtotal
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Товары',
+                          style: TextStyle(
+                            fontSize: Constants.fontSizeRegular,
+                            color: ColorUtils.secondaryColor,
+                          ),
+                        ),
+                        Text(
+                          formatPrice(subtotal),
+                          style: TextStyle(
+                            fontSize: Constants.fontSizeRegular,
+                            fontWeight: FontWeight.bold,
+                            color: ColorUtils.secondaryColor,
+                          ),
+                        ),
+                      ],
                     ),
 
                     // Delivery fee (if applicable)
@@ -412,111 +343,27 @@ class OrderConfirmationPage extends StatelessWidget {
 
                     Divider(color: Colors.grey[300]),
 
-                    // Total - Make sure to display the correct total
-                    Builder(
-                      builder: (context) {
-                        int calculatedTotal = total;
-
-                        // If total is 0 but we have items or subtotal, recalculate
-                        if (total == 0) {
-                          // Calculate from items if items exist
-                          if (items.isNotEmpty) {
-                            int itemsTotal = items.fold(0, (sum, item) {
-                              int itemPrice = 0;
-                              int itemQuantity = 1;
-
-                              // Safe extraction of price
-                              if (item['price'] != null) {
-                                if (item['price'] is int) {
-                                  itemPrice = item['price'];
-                                } else if (item['price'] is double) {
-                                  itemPrice = (item['price'] as double).toInt();
-                                } else {
-                                  try {
-                                    itemPrice = int.parse(
-                                      item['price'].toString(),
-                                    );
-                                  } catch (e) {
-                                    debugPrint(
-                                      '❌ Error parsing price for total: $e',
-                                    );
-                                  }
-                                }
-                              }
-
-                              // Safe extraction of quantity
-                              if (item['quantity'] != null) {
-                                if (item['quantity'] is int) {
-                                  itemQuantity = item['quantity'];
-                                } else if (item['quantity'] is double) {
-                                  itemQuantity =
-                                      (item['quantity'] as double).toInt();
-                                } else {
-                                  try {
-                                    itemQuantity = int.parse(
-                                      item['quantity'].toString(),
-                                    );
-                                  } catch (e) {
-                                    debugPrint(
-                                      '❌ Error parsing quantity for total: $e',
-                                    );
-                                  }
-                                }
-                              }
-
-                              return sum + (itemPrice * itemQuantity);
-                            });
-
-                            // Add delivery fee and subtract bonus
-                            calculatedTotal =
-                                itemsTotal + deliveryFee - appliedBonus;
-
-                            // Use 31000 as fallback (from your screenshot) if calculation fails
-                            if (calculatedTotal <= 0) {
-                              calculatedTotal = 0;
-                            }
-
-                            debugPrint(
-                              '📊 Recalculated total: $calculatedTotal (items: $itemsTotal, delivery: $deliveryFee, bonus: $appliedBonus)',
-                            );
-                          } else if (subtotal > 0) {
-                            // Or use subtotal if it's available
-                            calculatedTotal =
-                                subtotal + deliveryFee - appliedBonus;
-                            debugPrint(
-                              '📊 Recalculated total from subtotal: $calculatedTotal',
-                            );
-                          } else {
-                            // Last resort fallback - use 31000 from screenshot
-                            calculatedTotal = 0;
-                            debugPrint(
-                              '📊 Using fallback total: $calculatedTotal',
-                            );
-                          }
-                        }
-
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Общая сумма',
-                              style: TextStyle(
-                                fontSize: Constants.fontSizeMedium,
-                                fontWeight: FontWeight.bold,
-                                color: ColorUtils.secondaryColor,
-                              ),
-                            ),
-                            Text(
-                              formatPrice(calculatedTotal),
-                              style: TextStyle(
-                                fontSize: Constants.fontSizeMedium,
-                                fontWeight: FontWeight.bold,
-                                color: ColorUtils.accentColor,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
+                    // Total
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Общая сумма',
+                          style: TextStyle(
+                            fontSize: Constants.fontSizeMedium,
+                            fontWeight: FontWeight.bold,
+                            color: ColorUtils.secondaryColor,
+                          ),
+                        ),
+                        Text(
+                          formatPrice(total),
+                          style: TextStyle(
+                            fontSize: Constants.fontSizeMedium,
+                            fontWeight: FontWeight.bold,
+                            color: ColorUtils.accentColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -524,33 +371,69 @@ class OrderConfirmationPage extends StatelessWidget {
 
               SizedBox(height: 32),
 
-              // Return to main page button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (context) => MainPage()),
-                      (route) => false,
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ColorUtils.buttonColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+              // Buttons for actions
+              Column(
+                children: [
+                  // View order history button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => OrderHistoryPage(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ColorUtils.accentColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Перейти к истории заказов',
+                        style: TextStyle(
+                          fontSize: Constants.fontSizeMedium,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    'Вернуться на главную',
-                    style: TextStyle(
-                      fontSize: Constants.fontSizeMedium,
-                      fontWeight: FontWeight.bold,
+
+                  SizedBox(height: 16),
+
+                  // Return to main page button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (context) => MainPage()),
+                          (route) => false,
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: ColorUtils.accentColor),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Вернуться на главную',
+                        style: TextStyle(
+                          color: ColorUtils.accentColor,
+                          fontSize: Constants.fontSizeRegular,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ],
           ),

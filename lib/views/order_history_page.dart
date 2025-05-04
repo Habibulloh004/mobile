@@ -206,30 +206,6 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                           color: ColorUtils.secondaryColor,
                         ),
                       ),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              order.status == 'Доставлен'
-                                  ? Colors.green[100]
-                                  : Colors.blue[100],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          order.status,
-                          style: TextStyle(
-                            fontSize: Constants.fontSizeSmall,
-                            fontWeight: FontWeight.bold,
-                            color:
-                                order.status == 'Доставлен'
-                                    ? Colors.green[700]
-                                    : Colors.blue[700],
-                          ),
-                        ),
-                      ),
                     ],
                   ),
 

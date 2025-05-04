@@ -19,6 +19,7 @@ class OrderService {
   /// Submits an order to Poster API and saves it locally on success
   ///
   /// Returns the order ID if successful, null otherwise
+  // Updated submitOrder method in the OrderService class
   Future<Map<String, dynamic>?> submitOrder({
     required List<Map<String, dynamic>> cartItems,
     required String phone,
@@ -43,6 +44,13 @@ class OrderService {
       // Prepare products array
       final List<Map<String, dynamic>> formattedProducts = [];
 
+      // Deep copy of cart items to preserve all details
+      final List<Map<String, dynamic>> cartItemsCopy =
+          cartItems.map((item) {
+            return Map<String, dynamic>.from(item);
+          }).toList();
+
+      // Process items for API submission
       for (var item in cartItems) {
         final int productId = item['product_id'];
         final int quantity = item['quantity'] ?? 1;
@@ -116,11 +124,19 @@ class OrderService {
         final responseData = response.data["response"];
         debugPrint('✅ Order submitted successfully with ID: $responseData');
 
+        // Get spot name if applicable
+        String? spotName;
+        if (deliveryType != "delivery" && spotId != null) {
+          // Attempt to get spot name from API or other source
+          // This would be better provided by a spot service
+          debugPrint('🔍 Getting spot name for ID: $spotId');
+        }
+
         // Create result object with order ID and original cart items
         // This ensures we maintain the original item data for the confirmation page
         final orderResult = {
           "order_id": responseData["incoming_order_id"]?.toString() ?? "",
-          "items": cartItems, // Pass the original cart items
+          "items": cartItemsCopy, // Pass the complete original cart items
           "total": 0, // Will be calculated on confirmation page
           "subtotal": 0, // Will be calculated on confirmation page
           "delivery_fee": deliveryFee,
@@ -129,6 +145,7 @@ class OrderService {
           "is_delivery": deliveryType == "delivery",
           "payment_method": paymentMethod,
           "spot_id": spotId,
+          "spot_name": spotName, // Include spot name if available
         };
 
         // Save the order to local storage
@@ -168,10 +185,24 @@ class OrderService {
       );
       int subtotal = 0;
 
+      // Process each item to ensure we preserve all modification details
       for (var item in items) {
         final int price = item['price'] ?? 0;
         final int quantity = item['quantity'] ?? 1;
         subtotal += price * quantity;
+
+        // Debug log for item processing
+        debugPrint('📦 Processing item for storage: ${item['name']}');
+
+        // Make sure all modification details are preserved
+        if (item.containsKey('modification_details')) {
+          debugPrint('📦 Item has modification_details, preserving them');
+        } else if (item.containsKey('modification') &&
+            item['modification'] is Map) {
+          // If we have a regular modification without details, create details
+          debugPrint('📦 Creating modification_details for regular mod');
+          item['modification_details'] = [item['modification']];
+        }
       }
 
       // Update totals
@@ -186,7 +217,6 @@ class OrderService {
           .toString()
           .substring(0, 10)
           .replaceAll('-', '.');
-      orderData['status'] = 'В обработке'; // Initial status
 
       // Add to orders list
       orders.add(orderData);

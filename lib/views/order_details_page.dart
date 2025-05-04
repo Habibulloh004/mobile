@@ -105,43 +105,6 @@ class OrderDetailsPage extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Статус:',
-                        style: TextStyle(
-                          fontSize: Constants.fontSizeRegular,
-                          color: ColorUtils.secondaryColor,
-                        ),
-                      ),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              order.status == 'Доставлен'
-                                  ? Colors.green[100]
-                                  : Colors.blue[100],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          order.status,
-                          style: TextStyle(
-                            fontSize: Constants.fontSizeSmall,
-                            fontWeight: FontWeight.bold,
-                            color:
-                                order.status == 'Доставлен'
-                                    ? Colors.green[700]
-                                    : Colors.blue[700],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
                         'Дата:',
                         style: TextStyle(
                           fontSize: Constants.fontSizeRegular,
@@ -290,6 +253,32 @@ class OrderDetailsPage extends StatelessWidget {
                     ),
                   ),
 
+                // if (order.appliedBonus != null && order.appliedBonus! > 0)
+                if (order.subtotal + order.deliveryFee - order.total != 0)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Использовано бонусов",
+                          style: TextStyle(
+                            fontSize: Constants.fontSizeRegular,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                        Text(
+                          "- ${formatPrice(order.subtotal + order.deliveryFee - order.total)}",
+                          style: TextStyle(
+                            fontSize: Constants.fontSizeRegular,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Total
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
@@ -347,6 +336,7 @@ class OrderDetailsPage extends StatelessWidget {
     );
   }
 
+  // Updated _buildCartItemCard method for order_details_page.dart
   Widget _buildCartItemCard(BuildContext context, OrderItem item) {
     // Extract modification information
     String? modificationName;
@@ -374,8 +364,26 @@ class OrderDetailsPage extends StatelessWidget {
               Map<String, dynamic> modMap = {};
               if (mod is Map<String, dynamic>) {
                 modMap = mod;
+                // Make sure we have name and price if available
+                if (!modMap.containsKey("name") && mod.containsKey("name")) {
+                  modMap["name"] = mod["name"];
+                }
+                if (!modMap.containsKey("price") && mod.containsKey("price")) {
+                  modMap["price"] = mod["price"];
+                }
               } else {
+                // Extract the basic info
                 modMap = {'m': mod['m'] ?? mod, 'a': mod['a'] ?? 1};
+
+                // Add name if available (like in cart_page.dart)
+                if (mod.containsKey("name")) {
+                  modMap["name"] = mod["name"];
+                }
+
+                // Add price if available (like in cart_page.dart)
+                if (mod.containsKey("price")) {
+                  modMap["price"] = mod["price"];
+                }
               }
               groupModifications.add(modMap);
             } catch (e) {
@@ -386,6 +394,13 @@ class OrderDetailsPage extends StatelessWidget {
           debugPrint('Error parsing group modifications: $e');
         }
       }
+    }
+
+    // Prepare the display name with modification in parentheses
+    String displayName = cleanProductName(item.name);
+    if (modificationName != null) {
+      // Add the modification name in parentheses
+      displayName = "$displayName ($modificationName)";
     }
 
     return Container(
@@ -438,13 +453,14 @@ class OrderDetailsPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product name
+                      // Product name with modification in parentheses
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: Text(
-                              cleanProductName(item.name),
+                              displayName,
+                              // Using the combined name with modification
                               style: TextStyle(
                                 fontSize: Constants.fontSizeRegular,
                                 fontWeight: FontWeight.bold,
@@ -488,19 +504,8 @@ class OrderDetailsPage extends StatelessWidget {
 
                       SizedBox(height: 4),
 
-                      // Regular modification if available
-                      if (modificationName != null)
-                        Padding(
-                          padding: EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            modificationName,
-                            style: TextStyle(
-                              fontSize: Constants.fontSizeSmall,
-                              fontStyle: FontStyle.italic,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ),
+                      // We don't need to display the modification name separately anymore
+                      // since it's now included in the product name
 
                       // Price display
                       Text(

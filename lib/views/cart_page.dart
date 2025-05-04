@@ -17,6 +17,7 @@ class CartPage extends StatefulWidget {
 
 class _CartPageState extends State<CartPage> {
   final ApiService _apiService = ApiService();
+
   // Removed _loadingDeliveryFee flag since we don't need it anymore
 
   @override
@@ -44,7 +45,9 @@ class _CartPageState extends State<CartPage> {
 
       // Check if delivery field exists and its value
       if (adminData.containsKey('delivery')) {
-        debugPrint('💰 DEBUG: Raw delivery value from admin: ${adminData['delivery']} (${adminData['delivery'].runtimeType})');
+        debugPrint(
+          '💰 DEBUG: Raw delivery value from admin: ${adminData['delivery']} (${adminData['delivery'].runtimeType})',
+        );
       } else {
         debugPrint('❌ DEBUG: No delivery field found in admin data!');
       }
@@ -54,11 +57,15 @@ class _CartPageState extends State<CartPage> {
       debugPrint('🚚 DEBUG: getDeliveryFee result: $deliveryFee');
 
       // Debug the cart provider's delivery fee
-      debugPrint('🛒 DEBUG: CartProvider delivery fee: ${cartProvider.deliveryFee}');
+      debugPrint(
+        '🛒 DEBUG: CartProvider delivery fee: ${cartProvider.deliveryFee}',
+      );
 
       // Force a refresh of the delivery fee and check again
       await cartProvider.refreshDeliveryFee();
-      debugPrint('🔄 DEBUG: After refresh - CartProvider delivery fee: ${cartProvider.deliveryFee}');
+      debugPrint(
+        '🔄 DEBUG: After refresh - CartProvider delivery fee: ${cartProvider.deliveryFee}',
+      );
 
       // Check if isDelivery is correctly set
       debugPrint('📦 DEBUG: isDelivery flag: ${cartProvider.isDelivery}');
@@ -394,6 +401,8 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
+  // Updated _buildCartItemCard for cart_page.dart
+  // This update shows the modification name in parentheses after product name
   Widget _buildCartItemCard(
     BuildContext context,
     Map<String, dynamic> item,
@@ -448,6 +457,11 @@ class _CartPageState extends State<CartPage> {
 
     // Get clean product display name
     String displayName = cleanProductName(item['name'] ?? 'Unknown Product');
+
+    // Add modification name in parentheses if available
+    if (modificationName != null) {
+      displayName = "$displayName ($modificationName)";
+    }
 
     // Helper method for quantity buttons
     Widget _buildQuantityButton({
@@ -566,7 +580,7 @@ class _CartPageState extends State<CartPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product name
+                      // Product name with modification in parentheses
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

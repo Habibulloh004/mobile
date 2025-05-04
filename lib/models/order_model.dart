@@ -1,9 +1,6 @@
-// lib/models/order_model.dart - Updated for consistent price handling
-
-// lib/models/order_model.dart - Updated for consistent modification handling
-
+// Updated OrderModel class with appliedBonus field in order_model.dart
 class OrderModel {
-  final String id; // Changed from int to String to match API usage
+  final String id; // String ID to match API usage
   final String date;
   final String status;
   final String deliveryType; // 'delivery' or 'pickup'
@@ -11,6 +8,7 @@ class OrderModel {
   final int subtotal;
   final int deliveryFee;
   final int total;
+  final int? appliedBonus; // Add this field to store applied bonus
   final String? address;
   final String? comment;
   final String? spotId;
@@ -25,6 +23,7 @@ class OrderModel {
     required this.subtotal,
     required this.deliveryFee,
     required this.total,
+    this.appliedBonus, // Make this optional but include it
     this.address,
     this.comment,
     this.spotId,
@@ -45,16 +44,24 @@ class OrderModel {
     int subtotal = _parseIntValue(json['subtotal']);
     int deliveryFee = _parseIntValue(json['delivery_fee']);
     int total = _parseIntValue(json['total']);
+    int? appliedBonus =
+        json['applied_bonus'] != null
+            ? _parseIntValue(json['applied_bonus'])
+            : null;
 
     return OrderModel(
       id: json['order_id']?.toString() ?? '',
       date: json['date']?.toString() ?? '',
       status: json['status']?.toString() ?? 'В обработке',
-      deliveryType: json['delivery_type']?.toString() ?? 'delivery',
+      deliveryType:
+          json['delivery_type']?.toString() ??
+          (json['is_delivery'] == true ? 'delivery' : 'pickup'),
       items: orderItems,
       subtotal: subtotal,
       deliveryFee: deliveryFee,
       total: total,
+      appliedBonus: appliedBonus,
+      // Add applied bonus to the model
       address: json['address']?.toString(),
       comment: json['comment']?.toString(),
       spotId: json['spot_id']?.toString(),
@@ -63,7 +70,7 @@ class OrderModel {
   }
 
   // Helper method to parse numeric values to int
-  // NOTE: No division by 100 here as we assume order API returns correctly formatted prices
+  // No division by 100 here as we assume order API returns correctly formatted prices
   static int _parseIntValue(dynamic value) {
     if (value == null) return 0;
 
@@ -78,17 +85,17 @@ class OrderModel {
   }
 }
 
+// OrderItem class remains the same as before
 class OrderItem {
-  final String id; // Changed from productId to id to match constructor
+  final String id;
   final String name;
   final int price;
   final int quantity;
   final String imageUrl;
-  final dynamic
-  modification; // Changed to dynamic to support both String and Map types
+  final dynamic modification;
 
   OrderItem({
-    required this.id, // Updated parameter name
+    required this.id,
     required this.name,
     required this.price,
     required this.quantity,
@@ -102,8 +109,6 @@ class OrderItem {
     int quantity = _parseIntValue(json['quantity']);
 
     // Handle modification without type checking
-    // It can be a String (for group mods) or a Map (for regular mods)
-    // or null (for no mods)
     dynamic modificationData = json['modification'];
 
     return OrderItem(
@@ -112,8 +117,7 @@ class OrderItem {
       price: price,
       quantity: quantity,
       imageUrl: json['imageUrl']?.toString() ?? '',
-      modification:
-          modificationData, // Pass as is, will be handled during display
+      modification: modificationData,
     );
   }
 

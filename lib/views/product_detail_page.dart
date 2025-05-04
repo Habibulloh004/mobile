@@ -584,11 +584,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                     }
                                   });
 
-                                  // Get modifications JSON string for API
+                                  // Get modifications JSON string for API (contains only basic info)
                                   String modificationsJson =
                                       getSelectedModificationsJson();
 
                                   // Create cart item with clear separation of group modifications
+                                  // Store both the basic modification string and the detailed version
                                   cartItem = {
                                     'product_id': product.id,
                                     'name': cleanProductName(product.name),
@@ -599,6 +600,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                     'modification': modificationsJson,
                                     'modification_details':
                                         selectedModsWithNames,
+                                    // Add detailed info with names
                                   };
                                 } else if (product.modifications != null &&
                                     product.modifications!.isNotEmpty &&

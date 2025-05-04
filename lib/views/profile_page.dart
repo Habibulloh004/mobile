@@ -105,14 +105,15 @@ class _ProfilePageState extends State<ProfilePage> {
   void _formatPhoneNumber() {
     if (_phone.isEmpty) return;
 
-    // Try to format the phone number for display
+    // Try to format the phone number for display in the format +998 (93) 520 40 50
     try {
       String cleaned = _phone.replaceAll(RegExp(r'\D'), '');
 
-      // Format as +XXX XX XXX XX XX
+      // Ensure we have enough digits to format properly
       if (cleaned.length >= 12) {
+        // Format as +998 (93) 520 40 50
         _formattedPhone =
-            "+${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 8)} ${cleaned.substring(8, 10)} ${cleaned.substring(10)}";
+            "+${cleaned.substring(0, 3)} (${cleaned.substring(3, 5)}) ${cleaned.substring(5, 8)} ${cleaned.substring(8, 10)} ${cleaned.substring(10, 12)}";
       } else {
         _formattedPhone = _phone; // Fallback to original
       }

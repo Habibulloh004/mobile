@@ -902,6 +902,7 @@ class ApiService {
   // Fixed fetchOrderHistory method for ApiService
   // Place this method in lib/core/api_service.dart
 
+  // Updated fetchOrderHistory method for ApiService class
   Future<List<OrderModel>> fetchOrderHistory() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -935,15 +936,68 @@ class ApiService {
           // Convert to OrderItem objects
           final List<OrderItem> orderItems =
               itemsData.map((item) {
-                // Keep modification as is - can be String, Map or null
-                // The OrderItem constructor will handle it
+                // Debug the item for troubleshooting
+                debugPrint('🔍 Processing order item: ${item['name']}');
+
+                dynamic itemModification = item['modification'];
+
+                // Check if we have modification_details available
+                if (item.containsKey('modification_details') &&
+                    item['modification_details'] != null &&
+                    itemModification is String) {
+                  // If we have group modifications as a string and modification_details available,
+                  // use the details to enhance the JSON string with names
+                  try {
+                    List<dynamic> modDetails = item['modification_details'];
+                    List<dynamic> basicMods = jsonDecode(itemModification);
+
+                    // Create enhanced mods by combining basic mods with details
+                    List<Map<String, dynamic>> enhancedMods = [];
+
+                    for (var i = 0; i < basicMods.length; i++) {
+                      // Start with the basic mod info (usually just id and amount)
+                      Map<String, dynamic> enhancedMod =
+                          Map<String, dynamic>.from(
+                            basicMods[i] is Map
+                                ? basicMods[i]
+                                : {
+                                  'm': basicMods[i]['m'] ?? basicMods[i],
+                                  'a': basicMods[i]['a'] ?? 1,
+                                },
+                          );
+
+                      // Find corresponding detail with name and price
+                      if (i < modDetails.length) {
+                        if (modDetails[i].containsKey('name')) {
+                          enhancedMod['name'] = modDetails[i]['name'];
+                        }
+                        if (modDetails[i].containsKey('price')) {
+                          enhancedMod['price'] = modDetails[i]['price'];
+                        }
+                      }
+
+                      enhancedMods.add(enhancedMod);
+                    }
+
+                    // Convert back to JSON string with the enhanced information
+                    itemModification = jsonEncode(enhancedMods);
+                    debugPrint(
+                      '✅ Enhanced modifications with names for ${item['name']}',
+                    );
+                  } catch (e) {
+                    debugPrint('⚠️ Could not enhance modifications: $e');
+                    // Keep original modification if enhancement fails
+                  }
+                }
+
                 return OrderItem(
                   id: item['product_id'].toString(),
                   name: item['name'] ?? 'Unknown Product',
                   price: item['price'] ?? 0,
                   imageUrl: item['imageUrl'] ?? 'assets/images/no_image.png',
                   quantity: item['quantity'] ?? 1,
-                  modification: item['modification'], // Pass as is
+                  modification:
+                      itemModification, // Pass the enhanced modification data
                 );
               }).toList();
 

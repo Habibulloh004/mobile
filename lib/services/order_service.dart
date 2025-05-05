@@ -1,4 +1,4 @@
-// lib/services/order_service.dart - Updated to save orders locally
+// lib/services/order_service.dart
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -18,8 +18,7 @@ class OrderService {
 
   /// Submits an order to Poster API and saves it locally on success
   ///
-  /// Returns the order ID if successful, null otherwise
-  // Updated submitOrder method in the OrderService class
+  /// Returns the order details if successful, null otherwise
   Future<Map<String, dynamic>?> submitOrder({
     required List<Map<String, dynamic>> cartItems,
     required String phone,
@@ -41,16 +40,9 @@ class OrderService {
       // Format phone number (remove non-digit characters)
       final cleanPhone = phone.replaceAll(RegExp(r'[^0-9+]'), '');
 
-      // Prepare products array
+      // Prepare products array in the required format
       final List<Map<String, dynamic>> formattedProducts = [];
 
-      // Deep copy of cart items to preserve all details
-      final List<Map<String, dynamic>> cartItemsCopy =
-          cartItems.map((item) {
-            return Map<String, dynamic>.from(item);
-          }).toList();
-
-      // Process items for API submission
       for (var item in cartItems) {
         final int productId = item['product_id'];
         final int quantity = item['quantity'] ?? 1;
@@ -86,9 +78,9 @@ class OrderService {
         }
       }
 
-      // Prepare comment object
+      // Prepare comment object according to the required format
       final Map<String, dynamic> commentObj = {
-        "delivery_type": deliveryType == "delivery" ? "delivery" : "take away",
+        "delivery_type": deliveryType,
         "bonus": appliedBonus.toString(),
         "address": address,
         "payed_type": paymentMethod == "card" ? "card" : "cash",
@@ -98,17 +90,32 @@ class OrderService {
             deliveryType == "delivery" ? deliveryFee.toString() : "0",
       };
 
-      // Build final request payload
+      // Stringify the comment object as required
+      final String stringifiedComment = jsonEncode(commentObj);
+
+      // Build final request payload according to the required format
       final Map<String, dynamic> payload = {
         "spot_id":
             deliveryType == "delivery"
                 ? 1 // Default spot for delivery
-                : int.tryParse(spotId ?? "1") ??
-                    1, // Selected spot for takeaway
+                : int.tryParse(spotId ?? "1") ?? 1,
+        // Selected spot for takeaway
         "phone": cleanPhone,
         "products": formattedProducts,
-        "comment": jsonEncode(commentObj), // Stringify comment object
+        "comment": stringifiedComment,
+        // Stringify comment object
+        "service_mode": deliveryType == "delivery" ? "3" : "2",
+        // 3 for delivery, 2 for takeaway
       };
+
+      // Add delivery-specific fields only for delivery orders
+      if (deliveryType == "delivery") {
+        // Multiply delivery fee by 100 as required by the API
+        payload["delivery_price"] = deliveryFee * 100;
+
+        // Add client address for delivery orders
+        payload["client_address"] = {"address1": address};
+      }
 
       debugPrint('📦 Order payload: ${jsonEncode(payload)}');
 
@@ -128,7 +135,6 @@ class OrderService {
         String? spotName;
         if (deliveryType != "delivery" && spotId != null) {
           // Attempt to get spot name from API or other source
-          // This would be better provided by a spot service
           debugPrint('🔍 Getting spot name for ID: $spotId');
         }
 
@@ -136,16 +142,20 @@ class OrderService {
         // This ensures we maintain the original item data for the confirmation page
         final orderResult = {
           "order_id": responseData["incoming_order_id"]?.toString() ?? "",
-          "items": cartItemsCopy, // Pass the complete original cart items
-          "total": 0, // Will be calculated on confirmation page
-          "subtotal": 0, // Will be calculated on confirmation page
+          "items": List<Map<String, dynamic>>.from(cartItems),
+          // Pass the complete original cart items
+          "total": 0,
+          // Will be calculated on confirmation page
+          "subtotal": 0,
+          // Will be calculated on confirmation page
           "delivery_fee": deliveryFee,
           "applied_bonus": appliedBonus,
           "address": address,
           "is_delivery": deliveryType == "delivery",
           "payment_method": paymentMethod,
           "spot_id": spotId,
-          "spot_name": spotName, // Include spot name if available
+          "spot_name": spotName,
+          // Include spot name if available
         };
 
         // Save the order to local storage
@@ -217,6 +227,7 @@ class OrderService {
           .toString()
           .substring(0, 10)
           .replaceAll('-', '.');
+      orderData['status'] = 'В обработке';
 
       // Add to orders list
       orders.add(orderData);

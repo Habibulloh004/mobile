@@ -83,32 +83,100 @@ class _AboutPageState extends State<AboutPage> {
   }
 
   // Helper method to launch social media URL directly in browser
-  Future<void> _launchSocialMedia(String url) async {
+  Future<void> _launchSocialMedia(String url, String platform) async {
     if (url.isEmpty) return;
 
-    String validUrl = _ensureValidUrl(url);
-    debugPrint('Attempting to launch social media URL: $validUrl');
+    debugPrint('Attempting to launch $platform URL: $url');
 
     try {
-      final Uri uri = Uri.parse(validUrl);
+      // Format URL properly based on the platform
+      String formattedUrl = _formatSocialMediaUrl(url, platform);
+      final Uri uri = Uri.parse(formattedUrl);
 
-      // Skip the canLaunchUrl check and try directly launching
-      await launchUrl(uri, mode: LaunchMode.externalApplication).then((
-        success,
-      ) {
-        if (!success && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not open link: $validUrl')),
-          );
-        }
-      });
+      // Try to launch in app first
+      bool launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      // If that fails, try launching in browser
+      if (!launched && mounted) {
+        // Try browser as fallback
+        final browserUri = Uri.parse(_ensureValidUrl(url));
+        await launchUrl(browserUri, mode: LaunchMode.externalApplication).then((
+          success,
+        ) {
+          if (!success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not open $platform: $url')),
+            );
+          }
+        });
+      }
     } catch (e) {
-      debugPrint('Error launching URL: $e');
+      debugPrint('Error launching $platform URL: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error opening link: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error opening $platform: $e')));
       }
+    }
+  }
+
+  // New helper method to format social media URLs correctly
+  String _formatSocialMediaUrl(String url, String platform) {
+    // Remove any http/https prefix for consistent formatting
+    String cleanUrl = url.replaceAll(RegExp(r'https?://'), '');
+
+    switch (platform.toLowerCase()) {
+      case 'telegram':
+        // Handle Telegram URLs
+        if (cleanUrl.startsWith('t.me/') ||
+            cleanUrl.startsWith('telegram.me/')) {
+          return 'https://$cleanUrl';
+        } else if (!cleanUrl.contains('t.me/') &&
+            !cleanUrl.contains('telegram.me/')) {
+          // If it's just a username without domain
+          if (cleanUrl.startsWith('@')) {
+            cleanUrl = cleanUrl.substring(1);
+          }
+          return 'https://t.me/$cleanUrl';
+        }
+        return _ensureValidUrl(url);
+
+      case 'instagram':
+        // Handle Instagram URLs
+        if (cleanUrl.startsWith('instagram.com/') ||
+            cleanUrl.startsWith('www.instagram.com/')) {
+          return 'https://$cleanUrl';
+        } else if (!cleanUrl.contains('instagram.com/')) {
+          // If it's just a username without domain
+          if (cleanUrl.startsWith('@')) {
+            cleanUrl = cleanUrl.substring(1);
+          }
+          return 'https://instagram.com/$cleanUrl';
+        }
+        return _ensureValidUrl(url);
+
+      case 'facebook':
+        // Handle Facebook URLs
+        if (cleanUrl.startsWith('facebook.com/') ||
+            cleanUrl.startsWith('www.facebook.com/') ||
+            cleanUrl.startsWith('fb.com/')) {
+          return 'https://$cleanUrl';
+        } else if (!cleanUrl.contains('facebook.com/') &&
+            !cleanUrl.contains('fb.com/')) {
+          // If it's just a username without domain
+          if (cleanUrl.startsWith('@')) {
+            cleanUrl = cleanUrl.substring(1);
+          }
+          return 'https://facebook.com/$cleanUrl';
+        }
+        return _ensureValidUrl(url);
+
+      default:
+        // For other platforms, ensure URL has http/https
+        return _ensureValidUrl(url);
     }
   }
 
@@ -478,6 +546,7 @@ class _AboutPageState extends State<AboutPage> {
                             onTap: () {
                               _launchSocialMedia(
                                 _restaurantInfo!.socialMedia!.telegram!,
+                                "Telegram",
                               );
                             },
                           ),
@@ -492,6 +561,7 @@ class _AboutPageState extends State<AboutPage> {
                             onTap: () {
                               _launchSocialMedia(
                                 _restaurantInfo!.socialMedia!.facebook!,
+                                "Facebook",
                               );
                             },
                           ),
@@ -506,6 +576,7 @@ class _AboutPageState extends State<AboutPage> {
                             onTap: () {
                               _launchSocialMedia(
                                 _restaurantInfo!.socialMedia!.instagram!,
+                                "Instagram",
                               );
                             },
                           ),

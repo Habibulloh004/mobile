@@ -335,14 +335,14 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildSearchResultItem(SearchResult result) {
     final bool isCategory = result.type == SearchResultType.category;
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          if (isCategory) {
-            // Navigate to category products
+    if (isCategory) {
+      // Category item rendering (keep existing code)
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: EdgeInsets.only(bottom: 12),
+        child: InkWell(
+          onTap: () {
             debugPrint(
               '🔍 Navigating to category: ${result.name} (ID: ${result.id})',
             );
@@ -356,20 +356,136 @@ class _SearchPageState extends State<SearchPage> {
                     ),
               ),
             ).then((_) => debugPrint('⬅️ Returned from category page'));
-          } else {
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Result image
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: ColorUtils.primaryColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      result.imageUrl,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Image.asset(
+                          "assets/images/no_image.png",
+                          fit: BoxFit.cover,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                SizedBox(width: 16),
+
+                // Result info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        result.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: Constants.fontSizeRegular,
+                          color: ColorUtils.secondaryColor,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ColorUtils.primaryColor,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              "Категория",
+                              style: TextStyle(
+                                fontSize: Constants.fontSizeSmall,
+                                color: ColorUtils.secondaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Navigation arrow
+                Icon(Icons.chevron_right, color: Colors.grey[400]),
+              ],
+            ),
+          ),
+        ),
+      );
+    } else {
+      // Product item rendering - with modification support
+      final product = result.data as ProductModel;
+
+      // Ensure the first modifier is selected if available and none is currently selected
+      if (product.modifications != null &&
+          product.modifications!.isNotEmpty &&
+          product.selectedModification == null) {
+        product.selectedModification = product.modifications!.first;
+      }
+
+      // Get the effective price that includes selected modification if any
+      final displayPrice = product.effectivePrice;
+
+      // Get the clean product name
+      final productName = cleanProductName(product.name);
+
+      // Check if product has modifications or group modifications
+      final bool hasModifications =
+          product.modifications != null && product.modifications!.isNotEmpty;
+      final bool hasGroupModifications =
+          product.groupModifications != null &&
+          product.groupModifications!.isNotEmpty;
+
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: EdgeInsets.only(bottom: 12),
+        child: InkWell(
+          onTap: () {
             // For products, ensure the product data is accessible to ProductProvider
             final productProvider = Provider.of<ProductProvider>(
               context,
               listen: false,
             );
-            final product = result.data as ProductModel;
 
-            // Use the new addProduct method to ensure the product is in the provider
+            // Use the addProduct method to ensure the product is in the provider
             productProvider.addProduct(product);
 
-            // Now navigate to product details
+            // Navigate to product details
             debugPrint(
-              '🔍 Navigating to product: ${result.name} (ID: ${result.id})',
+              '🔍 Navigating to product: ${productName} (ID: ${result.id})',
             );
             Navigator.push(
               context,
@@ -377,103 +493,173 @@ class _SearchPageState extends State<SearchPage> {
                 builder: (context) => ProductDetailPage(productId: result.id),
               ),
             ).then((_) => debugPrint('⬅️ Returned from product detail page'));
-          }
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: EdgeInsets.all(12),
-          child: Row(
-            children: [
-              // Result image
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: ColorUtils.primaryColor,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    result.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Image.asset(
-                        "assets/images/no_image.png",
-                        fit: BoxFit.cover,
-                      );
-                    },
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Product image
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: ColorUtils.primaryColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          result.imageUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Image.asset(
+                              "assets/images/no_image.png",
+                              fit: BoxFit.cover,
+                            );
+                          },
+                        ),
+                      ),
+
+                      // Show modification badge if needed
+                      if (hasModifications || hasGroupModifications)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  hasGroupModifications
+                                      ? ColorUtils.primaryColor.withOpacity(0.8)
+                                      : ColorUtils.accentColor.withOpacity(0.8),
+                              borderRadius: BorderRadius.only(
+                                topRight: Radius.circular(8),
+                                bottomLeft: Radius.circular(8),
+                              ),
+                            ),
+                            child: Icon(
+                              hasGroupModifications ? Icons.add : Icons.tune,
+                              color:
+                                  hasGroupModifications
+                                      ? ColorUtils.secondaryColor
+                                      : Colors.white,
+                              size: 12,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
 
-              SizedBox(width: 16),
+                SizedBox(width: 16),
 
-              // Result info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isCategory ? result.name : cleanProductName(result.name),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: Constants.fontSizeRegular,
-                        color: ColorUtils.secondaryColor,
+                // Product info with modification
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        productName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: Constants.fontSizeRegular,
+                          color: ColorUtils.secondaryColor,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                isCategory
-                                    ? ColorUtils.primaryColor
-                                    : ColorUtils.accentColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+
+                      // Show selected modification if available
+                      if (product.selectedModification != null)
+                        Padding(
+                          padding: EdgeInsets.only(top: 2),
                           child: Text(
-                            isCategory ? "Категория" : "Товар",
+                            product.selectedModification!.name,
                             style: TextStyle(
                               fontSize: Constants.fontSizeSmall,
-                              color:
-                                  isCategory
-                                      ? ColorUtils.secondaryColor
-                                      : ColorUtils.accentColor,
+                              color: Colors.grey[600],
+                              fontStyle: FontStyle.italic,
                             ),
                           ),
                         ),
 
-                        if (!isCategory) ...[
-                          SizedBox(width: 8),
+                      // Show group modifications badge if available
+                      if (hasGroupModifications)
+                        Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Text(
+                            "Можно добавить допы",
+                            style: TextStyle(
+                              fontSize: Constants.fontSizeSmall,
+                              color: ColorUtils.accentColor,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+
+                      SizedBox(height: 4),
+
+                      Row(
+                        children: [
+                          // Price with effective price calculation
                           Text(
-                            formatPrice((result.data as dynamic).price),
+                            formatPrice(displayPrice),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: Constants.fontSizeSmall,
+                              fontSize: Constants.fontSizeRegular,
                               color: ColorUtils.accentColor,
                             ),
                           ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
 
-              // Navigation arrow
-              Icon(Icons.chevron_right, color: Colors.grey[400]),
-            ],
+                          SizedBox(width: 8),
+
+                          // Product type badge
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ColorUtils.accentColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              "Товар",
+                              style: TextStyle(
+                                fontSize: Constants.fontSizeSmall,
+                                color: ColorUtils.accentColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Navigation arrow
+                Icon(Icons.chevron_right, color: Colors.grey[400]),
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }
   }
 }

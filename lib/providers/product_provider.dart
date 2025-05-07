@@ -23,10 +23,12 @@ class ProductProvider with ChangeNotifier {
 
   int get currentCategoryId => _currentCategoryId;
 
-  // Add this method to your ProductProvider class
-
   // Add a new product to the provider's list
+  @override
   void addProduct(ProductModel product) {
+    // Apply default selections first
+    product = ensureProductDefaults(product);
+
     // Check if product already exists to avoid duplicates
     if (!_products.any((p) => p.id == product.id)) {
       _products.add(product);
@@ -34,11 +36,29 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  // Add multiple products at once
+  ProductModel ensureProductDefaults(ProductModel product) {
+    // For regular modifications, select the first one if available and none is selected
+    if (product.modifications != null &&
+        product.modifications!.isNotEmpty &&
+        product.selectedModification == null) {
+      product.selectedModification = product.modifications!.first;
+    }
+
+    // For group modifications, we don't select by default
+    // They should be selected in the product detail page
+
+    return product;
+  }
+
+  // Finally, override the addProducts method too
+  @override
   void addProducts(List<ProductModel> newProducts) {
     bool productsAdded = false;
 
     for (var product in newProducts) {
+      // Apply default selections first
+      product = ensureProductDefaults(product);
+
       // Add only if not already present
       if (!_products.any((p) => p.id == product.id)) {
         _products.add(product);

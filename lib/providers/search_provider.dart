@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:poster_app/helpers/index.dart';
 import '../models/category_model.dart';
 import '../models/product_model.dart';
 import '../providers/category_provider.dart';
@@ -140,7 +141,6 @@ class SearchProvider with ChangeNotifier {
     }
   }
 
-  // Global search across all categories and products
   Future<void> globalSearch(String query) async {
     if (query.isEmpty) {
       _searchResults = [];
@@ -194,23 +194,37 @@ class SearchProvider with ChangeNotifier {
             '📦 Fetched ${products.length} products for category: ${category.name}',
           );
 
-          // Add all products to our collected list - we'll add them to the provider later
-          allFoundProducts.addAll(products);
-
+          // Prepare products by selecting default modifiers
           for (var product in products) {
-            if (product.name.toLowerCase().contains(query.toLowerCase())) {
+            // Ensure first modifier is selected if available and none is selected
+            if (product.modifications != null &&
+                product.modifications!.isNotEmpty &&
+                product.selectedModification == null) {
+              product.selectedModification = product.modifications!.first;
+            }
+
+            // Check for match in product name
+            if (cleanProductName(
+              product.name,
+            ).toLowerCase().contains(query.toLowerCase())) {
               debugPrint(
-                '✅ Found matching product: ${product.name} (ID: ${product.id})',
+                '✅ Found matching product: ${cleanProductName(product.name)} (ID: ${product.id})',
               );
+
+              // Add to results
               results.add(
                 SearchResult(
                   type: SearchResultType.product,
                   data: product,
+                  // Product with default modifier selected
                   name: product.name,
                   imageUrl: product.imageUrl,
                   id: product.id,
                 ),
               );
+
+              // Add to the collection of all products for the provider
+              allFoundProducts.add(product);
             }
           }
         } catch (e) {

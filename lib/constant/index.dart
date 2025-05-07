@@ -20,7 +20,8 @@ class Constants {
   // API base URL
   // static const String apiBaseUrl = "http://172.20.10.9:8080/api"; // phone
   // static const String apiBaseUrl = "http://192.168.1.9:8080/api"; // wifi
-  static const String apiBaseUrl = "http://178.62.235.192:8080/api"; // global
+  // static const String apiBaseUrl = "http://178.62.235.192:8080/api"; // global
+  static const String apiBaseUrl = "https://possible-mobile.uz/api"; // prod
   static const String defaultApiToken = "";
 
   // Other app constants

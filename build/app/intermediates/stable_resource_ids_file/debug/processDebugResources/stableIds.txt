@@ -194,6 +194,7 @@ com.fluttermapp.poster_app:style/Base.TextAppearance.AppCompat.Subhead.Inverse =
 com.fluttermapp.poster_app:style/Base.TextAppearance.AppCompat.SearchResult.Subtitle = 0x7f0e001f
 com.fluttermapp.poster_app:style/Platform.V21.AppCompat = 0x7f0e00a9
 com.fluttermapp.poster_app:style/Base.TextAppearance.AppCompat.SearchResult = 0x7f0e001e
+com.fluttermapp.poster_app:xml/network_security_config = 0x7f100001
 com.fluttermapp.poster_app:style/Base.TextAppearance.AppCompat.Menu = 0x7f0e001d
 com.fluttermapp.poster_app:style/Base.TextAppearance.AppCompat.Medium.Inverse = 0x7f0e001c
 com.fluttermapp.poster_app:style/Base.TextAppearance.AppCompat.Headline = 0x7f0e0015

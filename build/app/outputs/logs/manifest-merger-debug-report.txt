@@ -1,6 +1,6 @@
 -- Merging decision tree log ---
 application
-INJECTED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:3:5-35:19
+INJECTED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:4:5-37:19
 INJECTED from D:\git\mobile\template\android\app\src\debug\AndroidManifest.xml
 MERGED from [:url_launcher_android] D:\git\mobile\template\build\url_launcher_android\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:7:5-12:19
 MERGED from [:url_launcher_android] D:\git\mobile\template\build\url_launcher_android\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:7:5-12:19
@@ -23,8 +23,8 @@ MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\Us
 	android:name
 		INJECTED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml
 manifest
-ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:1:1-47:12
-MERGED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:1:1-47:12
+ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:1:1-49:12
+MERGED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:1:1-49:12
 INJECTED from D:\git\mobile\template\android\app\src\debug\AndroidManifest.xml:1:1-7:12
 INJECTED from D:\git\mobile\template\android\app\src\debug\AndroidManifest.xml:1:1-7:12
 INJECTED from D:\git\mobile\template\android\app\src\debug\AndroidManifest.xml:1:1-7:12
@@ -97,18 +97,22 @@ MERGED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:2:5-
 MERGED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:2:5-67
 	android:name
 		ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:2:22-64
-queries
-ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:41:5-46:15
-intent#action:name:android.intent.action.PROCESS_TEXT+data:mimeType:text/plain
-ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:42:9-45:18
-action#android.intent.action.PROCESS_TEXT
-ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:43:13-72
+uses-permission#android.permission.ACCESS_NETWORK_STATE
+ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:3:5-79
 	android:name
-		ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:43:21-70
+		ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:3:22-76
+queries
+ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:43:5-48:15
+intent#action:name:android.intent.action.PROCESS_TEXT+data:mimeType:text/plain
+ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:44:9-47:18
+action#android.intent.action.PROCESS_TEXT
+ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:45:13-72
+	android:name
+		ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:45:21-70
 data
-ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:44:13-50
+ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:46:13-50
 	android:mimeType
-		ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:44:19-48
+		ADDED from D:\git\mobile\template\android\app\src\main\AndroidManifest.xml:46:19-48
 uses-sdk
 INJECTED from D:\git\mobile\template\android\app\src\debug\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from D:\git\mobile\template\android\app\src\debug\AndroidManifest.xml

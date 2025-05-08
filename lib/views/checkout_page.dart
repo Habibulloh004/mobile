@@ -372,7 +372,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // Calculate the correct total with bonus applied
       // IMPORTANT: For API submission, we need to use the display value
       // (already divided by 100), NOT the raw value
-      final int bonusValue = (_appliedBonus / 100).round();
+      final int bonusValue = (_appliedBonus).round();
       final int subtotalValue = cartProvider.subtotal;
       final int deliveryFeeValue = cartProvider.deliveryFee;
       final int totalValue = subtotalValue + deliveryFeeValue - bonusValue;

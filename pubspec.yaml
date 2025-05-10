@@ -74,6 +74,7 @@ flutter:
     - assets/images/logout.svg
     - assets/images/profile.svg
     - assets/images/time.svg
+    - assets/images/login.svg
     - assets/no_image.png
 
   # The following line ensures that the Material Icons font is

@@ -16,6 +16,7 @@ class AppSidebar extends StatefulWidget {
 class _AppSidebarState extends State<AppSidebar> {
   String _userName = "";
   bool _isLoading = true;
+  bool _isLoggedIn = false;
 
   @override
   void initState() {
@@ -27,19 +28,18 @@ class _AppSidebarState extends State<AppSidebar> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-      if (isLoggedIn) {
-        setState(() {
+      setState(() {
+        _isLoggedIn = isLoggedIn;
+        if (isLoggedIn) {
           _userName = prefs.getString('name') ?? "Пользователь";
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
+        } else {
           _userName = "Гость";
-          _isLoading = false;
-        });
-      }
+        }
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
+        _isLoggedIn = false;
         _userName = "Гость";
         _isLoading = false;
       });
@@ -69,24 +69,24 @@ class _AppSidebarState extends State<AppSidebar> {
             ),
             _isLoading
                 ? Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  ColorUtils.accentColor,
-                ),
-              ),
-            )
+                  padding: const EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      ColorUtils.accentColor,
+                    ),
+                  ),
+                )
                 : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                "Привет, $_userName!",
-                style: TextStyle(
-                  fontSize: Constants.fontSizeMedium,
-                  fontWeight: FontWeight.bold,
-                  color: ColorUtils.secondaryColor,
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    "Привет, $_userName!",
+                    style: TextStyle(
+                      fontSize: Constants.fontSizeMedium,
+                      fontWeight: FontWeight.bold,
+                      color: ColorUtils.secondaryColor,
+                    ),
+                  ),
                 ),
-              ),
-            ),
             SizedBox(height: 16),
             _buildMenuItemSvg(
               context,
@@ -144,16 +144,28 @@ class _AppSidebarState extends State<AppSidebar> {
             ),
             _buildMenuItemSvg(
               context,
-              iconPath: 'assets/images/logout.svg',
-              title: "Выйти из аккаунта",
+              iconPath:
+                  _isLoggedIn
+                      ? 'assets/images/logout.svg'
+                      : 'assets/images/login.svg',
+              title: _isLoggedIn ? "Выйти из аккаунта" : "Войти",
               onTap: () async {
-                // Clear user data and redirect to login page
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setBool("isLoggedIn", false);
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => LoginPage()),
-                      (route) => false,
-                );
+                if (_isLoggedIn) {
+                  // Logout functionality
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool("isLoggedIn", false);
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => LoginPage()),
+                    (route) => false,
+                  );
+                } else {
+                  // Login functionality
+                  Navigator.pop(context);
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => LoginPage()),
+                    (route) => false,
+                  );
+                }
               },
             ),
             SizedBox(height: 16),
@@ -164,11 +176,11 @@ class _AppSidebarState extends State<AppSidebar> {
   }
 
   Widget _buildMenuItemSvg(
-      BuildContext context, {
-        required String iconPath,
-        required String title,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required String iconPath,
+    required String title,
+    required VoidCallback onTap,
+  }) {
     return ListTile(
       leading: Container(
         width: 22,
@@ -192,11 +204,11 @@ class _AppSidebarState extends State<AppSidebar> {
 
   // Keep the original method as a fallback in case you need it
   Widget _buildMenuItem(
-      BuildContext context, {
-        required IconData icon,
-        required String title,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
     return ListTile(
       leading: Icon(icon, color: ColorUtils.secondaryColor, size: 22),
       title: Text(
